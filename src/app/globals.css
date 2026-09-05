@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-neon: #ceff00;
+  --color-obsidian: #0c0c0c;
+  --color-gunmetal: #414141;
+  --color-charcoal: #5a5a5a;
+  --color-ash: #8d8d8d;
+  --color-silver: #b3b3b3;
+  --color-alabaster: #d9d9d9;
+  --color-platinum: #ececec;
+  --color-porcelain: #f5f4f2;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #0c0c0c;
+  color: #fafafa;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #0c0c0c;
+  color: #fafafa;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Technical 114px Grid */
+.bg-grid-technical {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 114px 114px;
+}
+
+.bg-grid-technical-light {
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 114px 114px;
+}
+
+/* Typography Utility Classes */
+.font-mono-tech {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.font-heading-display {
+  font-family: var(--font-heading), var(--font-body), -apple-system, sans-serif;
+  letter-spacing: -0.04em;
+}
+
+/* Button Hover Wipe Effect */
+.btn-wipe-neon {
+  position: relative;
+  overflow: hidden;
+  background-color: #ceff00;
+  color: #000000;
+  font-family: var(--font-mono), monospace;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: color 0.3s ease;
+}
+
+.btn-wipe-neon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background-color: #000000;
+  transition: width 0.25s cubic-bezier(1, 0, 0.01, 1);
+  z-index: 0;
+}
+
+.btn-wipe-neon:hover::before {
+  width: 100%;
+}
+
+.btn-wipe-neon:hover {
+  color: #ffffff;
+}
+
+.btn-wipe-neon > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dark Button Hover Wipe */
+.btn-wipe-dark {
+  position: relative;
+  overflow: hidden;
+  background-color: #141414;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: var(--font-mono), monospace;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+
+.btn-wipe-dark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  background-color: #ceff00;
+  transition: width 0.25s cubic-bezier(1, 0, 0.01, 1);
+  z-index: 0;
+}
+
+.btn-wipe-dark:hover::before {
+  width: 100%;
+}
+
+.btn-wipe-dark:hover {
+  color: #000000;
+  border-color: #ceff00;
+}
+
+.btn-wipe-dark > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Mono Invert Nav Link */
+.nav-link-tech {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.5rem;
+  color: #b3b3b3;
+  transition: all 0.2s ease;
+}
+
+.nav-link-tech:hover {
+  background-color: #ceff00;
+  color: #000000;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c0c0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ceff00;
+}
+
+/* Leaflet Custom Command Center Overrides */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #141414 !important;
+  color: #ffffff !important;
+  border-radius: 0px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-container {
+  background-color: #0c0c0c !important;
+  font-family: var(--font-mono), monospace !important;
+}
+
+.leaflet-popup-close-button {
+  color: #8d8d8d !important;
+  padding: 6px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #ceff00 !important;
+}
+
+/* CartoDB / OSM Dark Tile inversion fallback */
+.dark-tiles {
+  filter: brightness(0.65) invert(1) contrast(2.2) hue-rotate(185deg) saturate(0.25) brightness(0.7);
+}
+
+@keyframes markerPulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.8); opacity: 0.2; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+.animate-beacon-pulse {
+  animation: markerPulse 1.4s infinite ease-in-out;
+}
+
