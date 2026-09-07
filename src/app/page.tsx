@@ -12,6 +12,7 @@ import ChallengesSection from '@/components/sections/ChallengesSection';
 import FeedbackLoopSection from '@/components/sections/FeedbackLoopSection';
 import FooterSection from '@/components/sections/FooterSection';
 import LandingAuthInterceptor from '@/components/landing/LandingAuthInterceptor';
+import AlertsArchitectureSection from '@/components/sections/AlertsArchitectureSection';
 
 export default function Home() {
   return (
@@ -26,6 +27,7 @@ export default function Home() {
         <ImpactSection />
         <EcosystemSection />
         <TechStackSection />
+        <AlertsArchitectureSection />
         <DataSourcesSection />
         <ChallengesSection />
         <FeedbackLoopSection />

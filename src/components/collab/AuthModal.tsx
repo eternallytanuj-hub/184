@@ -6,8 +6,6 @@ import {
   User,
   Lock,
   KeyRound,
-  Fingerprint,
-  ScanFace,
   CheckCircle2,
   AlertCircle,
   X,
@@ -124,10 +122,8 @@ export default function AuthModal<T = OfficerRole>({
   const [selectedRole, setSelectedRole] = useState<OfficerRole>(
     currentRole || defaultPersona.collabRole
   );
-  const [badgeId, setBadgeId] = useState<string>(
-    initialBadgeId || defaultPersona.badgeId
-  );
-  const [password, setPassword] = useState<string>(defaultPersona.password);
+  const [badgeId, setBadgeId] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successMsg, setSuccessMsg] = useState<string>('');
@@ -141,18 +137,17 @@ export default function AuthModal<T = OfficerRole>({
 
       if (initialBadgeId) {
         const normalized = initialBadgeId.trim().toUpperCase();
-        setBadgeId(initialBadgeId);
         const match = DEMO_PERSONAS.find((p) => p.badgeId.toUpperCase() === normalized);
         if (match) {
-          setPassword(match.password);
+          setPassword('');
           setSelectedRole(match.collabRole);
         }
       } else if (currentRole) {
         setSelectedRole(currentRole);
         const match = DEMO_PERSONAS.find((p) => p.collabRole === currentRole);
         if (match) {
-          setBadgeId(match.badgeId);
-          setPassword(match.password);
+          setBadgeId('');
+          setPassword('');
         }
       }
     }
@@ -175,11 +170,8 @@ export default function AuthModal<T = OfficerRole>({
   // Resolve officer in real-time
   const resolvedOfficer = resolveOfficer(badgeId);
 
-  // Persona card selection handler
   const handleSelectPersona = (persona: DemoPersona) => {
     if (isProcessing) return;
-    setBadgeId(persona.badgeId);
-    setPassword(persona.password);
     setSelectedRole(persona.collabRole);
     setErrorMsg('');
     setSuccessMsg('');
@@ -294,92 +286,6 @@ export default function AuthModal<T = OfficerRole>({
     }
   };
 
-  // Quick biometric shortcut handler
-  const handleBiometricSimulate = async () => {
-    if (isProcessing) return;
-
-    const trimmedBadge = badgeId ? badgeId.trim() : '';
-    const officer = resolveOfficer(trimmedBadge) || resolveOfficer('I4C-DIR-01');
-    if (!officer) {
-      setErrorMsg('Invalid Officer ID. Access Denied.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    const matchedPersona =
-      DEMO_PERSONAS.find((p) => p.badgeId === officer.badgeId) || DEMO_PERSONAS[0];
-    const pwd = matchedPersona.password || password;
-    const email = BADGE_TO_EMAIL[officer.badgeId] || officer.email;
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: pwd,
-      });
-
-      if (error || !data?.session) {
-        setIsProcessing(false);
-        setErrorMsg('Authentication Failed. Invalid credentials.');
-        return;
-      }
-
-      const officerPayload = {
-        badgeId: officer.badgeId,
-        name: officer.name,
-        role: officer.role,
-        persona: officer.persona,
-      };
-
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('cybercast_officer', JSON.stringify(officerPayload));
-        } catch (err) {
-          console.error('Failed to persist cybercast_officer:', err);
-        }
-        window.dispatchEvent(new Event('cybercast_auth_change'));
-      }
-
-      const collabRole =
-        BADGE_OR_ROLE_TO_COLLAB_ROLE[officer.role] ||
-        (selectedRole as OfficerRole) ||
-        'i4c_admin';
-
-      const officerWithCompat: any = {
-        ...officerPayload,
-        email: officer.email,
-        title: officer.title || officer.persona,
-        collabRole,
-        toString: () => collabRole,
-        valueOf: () => collabRole,
-        [Symbol.toPrimitive]: () => collabRole,
-      };
-
-      setIsProcessing(false);
-      setSuccessMsg(`BIOMETRIC CONFIRMED: ${officer.name.toUpperCase()}`);
-
-      onClose();
-
-      if (onLoginSuccess) {
-        const isLegacyRoleCallback =
-          currentRole !== undefined &&
-          typeof onLoginSuccess === 'function' &&
-          (/setCurrentRole/i.test(onLoginSuccess.toString()) ||
-            /^\s*\(?\s*role\s*\)?\s*=>/i.test(onLoginSuccess.toString()));
-
-        if (isLegacyRoleCallback) {
-          onLoginSuccess(collabRole as any);
-        } else {
-          onLoginSuccess(officerWithCompat);
-        }
-      }
-    } catch (err) {
-      setIsProcessing(false);
-      setErrorMsg('Authentication Failed. Invalid credentials.');
-    }
-  };
 
   return (
     <div
@@ -425,38 +331,6 @@ export default function AuthModal<T = OfficerRole>({
           )}
         </div>
 
-        {/* Quick Role Switcher Presets */}
-        <div className="p-4 bg-[#171717] border-b border-white/10">
-          <label className="block text-[10px] font-mono text-white/50 uppercase mb-2">
-            Select Operational Persona for Live Demonstration:
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {DEMO_PERSONAS.map((p) => {
-              const isSelected =
-                badgeId.trim().toUpperCase() === p.badgeId.toUpperCase();
-              return (
-                <button
-                  key={p.badgeId}
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={() => handleSelectPersona(p)}
-                  className={`p-2 text-left border text-xs font-mono transition-all rounded-none disabled:opacity-50 ${
-                    isSelected
-                      ? 'border-[#ceff00] bg-[#ceff00]/10 text-white'
-                      : 'border-white/10 bg-[#0c0c0c] text-white/60 hover:text-white hover:border-white/30'
-                  }`}
-                >
-                  <div className="text-[10px] font-bold truncate text-[#ceff00]">
-                    {p.shortLabel}
-                  </div>
-                  <div className="text-[9px] text-white/40 truncate mt-0.5">
-                    {p.badgeId}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Form Body */}
         <div className="p-6 space-y-4">
@@ -470,6 +344,7 @@ export default function AuthModal<T = OfficerRole>({
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   disabled={isProcessing}
                   value={badgeId}
                   onChange={(e) => {
@@ -492,6 +367,7 @@ export default function AuthModal<T = OfficerRole>({
                 <input
                   type="password"
                   required
+                  autoComplete="off"
                   disabled={isProcessing}
                   value={password}
                   onChange={(e) => {
@@ -559,34 +435,7 @@ export default function AuthModal<T = OfficerRole>({
                 )}
               </button>
 
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-white/10" />
-                <span className="flex-shrink mx-2 text-[10px] font-mono text-white/40 uppercase">
-                  OR QUICK BIOMETRIC
-                </span>
-                <div className="flex-grow border-t border-white/10" />
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleBiometricSimulate}
-                  className="py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-mono uppercase flex items-center justify-center gap-1.5 transition-colors rounded-none disabled:opacity-50"
-                >
-                  <Fingerprint className="w-4 h-4 text-[#ceff00]" />
-                  Fingerprint
-                </button>
-                <button
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleBiometricSimulate}
-                  className="py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-mono uppercase flex items-center justify-center gap-1.5 transition-colors rounded-none disabled:opacity-50"
-                >
-                  <ScanFace className="w-4 h-4 text-sky-400" />
-                  Facial Recog
-                </button>
-              </div>
             </div>
           </form>
         </div>
