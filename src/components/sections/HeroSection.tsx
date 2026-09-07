@@ -187,7 +187,7 @@ export default function HeroSection() {
 
       {/* Bottom Scroll Cue */}
       <div className="relative z-10 mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8 mt-12 flex items-center justify-between font-mono text-[10px] text-zinc-500 uppercase tracking-widest">
-        <span>[ SIH 2024 / PS 184 / MINISTRY OF HOME AFFAIRS, I4C ]</span>
+        <span>[ SIH 2026 / PS 184 / MINISTRY OF HOME AFFAIRS, I4C ]</span>
         <span className="text-zinc-400">[ DRAG GLOBE TO ROTATE // SCROLL DOWN ↓ ]</span>
       </div>
     </section>

@@ -35,7 +35,7 @@ test('2. Content Store Verbatim Copy Verification', async (t) => {
   const requiredPhrases = [
     // Section 1: Hero
     'Predicting Cybercrime Cash Withdrawals Before They Happen',
-    'Smart India Hackathon 2024 | Problem Statement 184 | Ministry of Home Affairs, I4C',
+    'Smart India Hackathon 2026 | Problem Statement 184 | Ministry of Home Affairs, I4C',
     'Explore the Dashboard →',
     // Section 2: The Problem
     'The Crisis We Are Solving',
@@ -105,7 +105,7 @@ test('2. Content Store Verbatim Copy Verification', async (t) => {
     'SIH184',
     'Cyber Singham',
     'Galgotias University',
-    'Ekkta Mishra , Aditya Gupta , Tanuj Pathak , Shreya Singh , Shruti Yadav , Manya SIngh Bhadauriya'
+    'Ekkta Mishra , Aditya Gupta , Tanuj Pathak , Shreya Singh , Shruti Yadav , Manya Singh Bhadauriya'
   ];
 
   for (const phrase of requiredPhrases) {

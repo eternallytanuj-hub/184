@@ -223,9 +223,9 @@ export default function FooterSection() {
                 {/* Structured Member Badges */}
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {footer.teamSection.memberList.map((member, idx) => (
-                    <div key={idx} className="p-2 bg-black/40 border border-white/5 text-[11px] font-mono">
+                    <div key={idx} className="p-2.5 bg-black/40 border border-white/10 text-[11px] font-mono flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 bg-neon/80 rounded-none shrink-0" />
                       <div className="text-white font-medium">{member.name}</div>
-                      <div className="text-zinc-500 text-[10px]">{member.role}</div>
                     </div>
                   ))}
                 </div>

@@ -17,7 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'CyberCast — Predicting Cybercrime Cash Withdrawals Before They Happen',
-  description: "An AI-powered predictive analytics framework that transforms India's cybercrime response from reactive to proactive — forecasting likely cash withdrawal locations in real-time to enable timely intervention by law enforcement and financial institutions. Smart India Hackathon 2024 | Problem Statement 184 | Ministry of Home Affairs, I4C",
+  description: "An AI-powered predictive analytics framework that transforms India's cybercrime response from reactive to proactive — forecasting likely cash withdrawal locations in real-time to enable timely intervention by law enforcement and financial institutions. Smart India Hackathon 2026 | Problem Statement 184 | Ministry of Home Affairs, I4C",
   icons: {
     icon: '/CyberCast.png',
   },

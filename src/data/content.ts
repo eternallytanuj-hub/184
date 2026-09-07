@@ -49,7 +49,7 @@ export const content = {
   hero: {
     headline: "Predicting Cybercrime Cash Withdrawals Before They Happen",
     subHeadline: "An AI-powered predictive analytics framework that transforms India's cybercrime response from reactive to proactive — forecasting likely cash withdrawal locations in real-time to enable timely intervention by law enforcement and financial institutions.",
-    tagline: "Smart India Hackathon 2024 | Problem Statement 184 | Ministry of Home Affairs, I4C",
+    tagline: "Smart India Hackathon 2026 | Problem Statement 184 | Ministry of Home Affairs, I4C",
     buttonText: "Explore the Dashboard →",
     featuredIntel: {
       title: "FEATURED INTEL",
@@ -368,14 +368,14 @@ export const content = {
     teamSection: {
       teamName: "Cyber Singham",
       college: "Galgotias University",
-      members: "Ekkta Mishra , Aditya Gupta , Tanuj Pathak , Shreya Singh , Shruti Yadav , Manya SIngh Bhadauriya",
+      members: "Ekkta Mishra , Aditya Gupta , Tanuj Pathak , Shreya Singh , Shruti Yadav , Manya Singh Bhadauriya",
       memberList: [
-        { name: "Ekkta Mishra", role: "Team Lead & ML Architect" },
-        { name: "Aditya Gupta", role: "Full Stack & Backend Specialist" },
-        { name: "Tanuj Pathak", role: "GIS & Systems Engineer" },
-        { name: "Shreya Singh", role: "Data Pipeline & Analytics Engineer" },
-        { name: "Shruti Yadav", role: "Security & Cloud Architect" },
-        { name: "Manya SIngh Bhadauriya", role: "NLP & Predictive Modeler" }
+        { name: "Ekkta Mishra" },
+        { name: "Aditya Gupta" },
+        { name: "Tanuj Pathak" },
+        { name: "Shreya Singh" },
+        { name: "Shruti Yadav" },
+        { name: "Manya Singh Bhadauriya" }
       ]
     }
   }

@@ -362,7 +362,7 @@ test('5. Runtime Production Server HTTP Rendering & Static Serving', async (t) =
     // Verbatim Section Text Assertions (All 12 Sections)
     const requiredSections = [
       { sec: 1, text: 'Predicting Cybercrime Cash Withdrawals Before They Happen' },
-      { sec: 1, text: 'Smart India Hackathon 2024 | Problem Statement 184 | Ministry of Home Affairs, I4C' },
+      { sec: 1, text: 'Smart India Hackathon 2026 | Problem Statement 184 | Ministry of Home Affairs, I4C' },
       { sec: 1, text: 'Explore the Dashboard →' },
       { sec: 2, text: 'The Crisis We Are Solving' },
       { sec: 2, text: '8,000+ Daily Complaints' },
@@ -423,7 +423,7 @@ test('5. Runtime Production Server HTTP Rendering & Static Serving', async (t) =
       { sec: 12, text: 'Tanuj Pathak' },
       { sec: 12, text: 'Shreya Singh' },
       { sec: 12, text: 'Shruti Yadav' },
-      { sec: 12, text: 'Manya SIngh Bhadauriya' }
+      { sec: 12, text: 'Manya Singh Bhadauriya' }
     ];
 
     for (const item of requiredSections) {
