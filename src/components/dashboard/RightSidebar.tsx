@@ -14,6 +14,7 @@ import {
   RiskZoneRank, 
   ATMEntity 
 } from '@/data/dashboardData';
+import { getTopRiskZones } from '@/lib/apiService';
 
 interface RightSidebarProps {
   selectedZone: string;
@@ -21,6 +22,7 @@ interface RightSidebarProps {
   onSelectZone: (zoneName: string, coords: [number, number], zoom?: number) => void;
   onSelectATM: (atm: ATMEntity) => void;
   onAcknowledgeAlert?: (id: string) => void;
+  alerts?: LiveAlertItem[];
 }
 
 export default function RightSidebar({
@@ -29,11 +31,37 @@ export default function RightSidebar({
   onSelectZone,
   onSelectATM,
   onAcknowledgeAlert,
+  alerts: propAlerts,
 }: RightSidebarProps) {
-  const [alerts, setAlerts] = useState<LiveAlertItem[]>(LIVE_ALERTS_DATA);
+  const [internalAlerts, setInternalAlerts] = useState<LiveAlertItem[]>(LIVE_ALERTS_DATA);
+  const alerts = propAlerts || internalAlerts;
+  const setAlerts = setInternalAlerts;
+  const [riskZones, setRiskZones] = useState<RiskZoneRank[]>(TOP_10_RISK_ZONES);
+  const [isLoadingZones, setIsLoadingZones] = useState(false);
+  const [isZonesLive, setIsZonesLive] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [activeTab, setActiveTab] = useState<'zone' | 'alerts' | 'top10'>('zone');
+
+  // Fetch Live Top 10 Risk Zones from ML Model API
+  const fetchLiveZones = React.useCallback(async () => {
+    setIsLoadingZones(true);
+    try {
+      const liveData = await getTopRiskZones(10);
+      if (liveData && liveData.length > 0) {
+        setRiskZones(liveData);
+        setIsZonesLive(liveData[0]?.isLive ?? true);
+      }
+    } catch (err) {
+      console.warn('Failed to load live top risk zones, using fallback:', err);
+    } finally {
+      setIsLoadingZones(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveZones();
+  }, [fetchLiveZones]);
 
   // Collapsible panels
   const [alertsExpanded, setAlertsExpanded] = useState(true);
@@ -320,38 +348,62 @@ export default function RightSidebar({
             <span className="font-bold text-white uppercase text-[11px] tracking-wider">
               TOP 10 RISK ZONES
             </span>
+            <span className={`text-[8px] px-1 py-0.2 border uppercase ${
+              isZonesLive ? 'text-neon border-neon/30 bg-neon/5' : 'text-zinc-400 border-white/10'
+            }`}>
+              {isZonesLive ? 'LIVE' : 'CACHED'}
+            </span>
           </div>
-          <button
-            onClick={() => setTop10Expanded(!top10Expanded)}
-            className="text-zinc-400 hover:text-white"
-          >
-            {top10Expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={fetchLiveZones}
+              disabled={isLoadingZones}
+              className="p-1 text-zinc-400 hover:text-white"
+              title="Refresh from /districts ML Model API"
+            >
+              <RefreshCw className={`h-3 w-3 ${isLoadingZones ? 'animate-spin text-neon' : ''}`} />
+            </button>
+            <button
+              onClick={() => setTop10Expanded(!top10Expanded)}
+              className="text-zinc-400 hover:text-white p-1"
+            >
+              {top10Expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          </div>
         </div>
 
         {top10Expanded && (
-          <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-            {TOP_10_RISK_ZONES.map((zone) => (
+          <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+            {riskZones.map((zone) => (
               <div
-                key={zone.rank}
+                key={`${zone.rank}-${zone.name}`}
                 onClick={() => onSelectZone(zone.name, [zone.lat, zone.lng], 14)}
                 className={`p-1.5 bg-[#141414] hover:bg-white/5 border flex items-center justify-between cursor-pointer transition-colors ${
                   zone.name === selectedZone ? 'border-neon bg-neon/5' : 'border-white/5'
                 }`}
+                title={`District Risk Score: ${zone.score}/100 • ${zone.state}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-zinc-500 text-[9px] w-3">{zone.rank}.</span>
                   <span className={`h-1.5 w-1.5 ${
                     zone.score >= 80 ? 'bg-red-500' :
-                    zone.score >= 65 ? 'bg-amber-400' : 'bg-yellow-400'
+                    zone.score >= 60 ? 'bg-amber-400' : 'bg-yellow-400'
                   }`} />
-                  <span className="text-white font-medium text-[10px] truncate max-w-[130px]">
-                    {zone.name}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-white font-medium text-[10px] truncate max-w-[130px]">
+                      {zone.name}
+                    </span>
+                    <span className="text-[8px] text-zinc-500">{zone.state}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-white text-[10px]">{zone.score}</span>
+                  <span className={`font-bold text-[10px] ${
+                    zone.score >= 80 ? 'text-red-400' :
+                    zone.score >= 60 ? 'text-amber-400' : 'text-neon'
+                  }`}>
+                    {zone.score}
+                  </span>
                   {zone.trend === 'up' ? (
                     <TrendingUp className="h-3 w-3 text-red-500" />
                   ) : (

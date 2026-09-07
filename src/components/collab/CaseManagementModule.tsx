@@ -13,6 +13,13 @@ import {
   OfficerRole, OFFICER_ROLES, OfficerProfile, MoneyTrailNode, EVIDENCE_DATA,
   CHAT_MESSAGES, ChatMessage
 } from '@/data/collabData';
+import ComplaintPredictorModal from './ComplaintPredictorModal';
+import { 
+  predictWithdrawal, 
+  getSHAPExplanation, 
+  PredictionResponse, 
+  SHAPExplanation 
+} from '@/lib/apiService';
 
 interface CaseManagementModuleProps {
   currentRole?: OfficerRole;
@@ -49,6 +56,12 @@ export default function CaseManagementModule({
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<CaseStatus>('UNDER_INVESTIGATION');
   const [statusNote, setStatusNote] = useState('');
+
+  // Live Prediction Modal State
+  const [isPredictModalOpen, setIsPredictModalOpen] = useState(false);
+  const [isReAnalyzingCase, setIsReAnalyzingCase] = useState(false);
+  const [caseLivePrediction, setCaseLivePrediction] = useState<PredictionResponse | null>(null);
+  const [caseLiveShap, setCaseLiveShap] = useState<SHAPExplanation | null>(null);
 
   // Money trail freeze state tracker
   const [frozenNodeIds, setFrozenNodeIds] = useState<string[]>([]);
@@ -149,6 +162,51 @@ export default function CaseManagementModule({
     setStatusNote('');
   };
 
+  // Re-analyze active case with live ML model API
+  const handleReAnalyzeActiveCase = async () => {
+    if (!activeCase) return;
+    setIsReAnalyzingCase(true);
+    try {
+      const pred = await predictWithdrawal({
+        complaint_id: activeCase.id,
+        fraud_type: activeCase.fraudType,
+        amount_stolen_inr: activeCase.totalAmount,
+        victim_state: activeCase.victimState,
+        victim_district: activeCase.victimDistrict,
+        victim_city_type: 'Metro',
+        fraudster_phone_circle: activeCase.suspectedWithdrawalState,
+        mule_account_bank: activeCase.moneyTrail[0]?.bank || 'SBI',
+        mule_account_state: activeCase.suspectedWithdrawalState,
+        complaint_hour: 14,
+        complaint_day_of_week: 2,
+      });
+      const shap = getSHAPExplanation({
+        fraud_type: activeCase.fraudType,
+        amount_stolen_inr: activeCase.totalAmount,
+        victim_state: activeCase.victimState,
+        mule_account_state: activeCase.suspectedWithdrawalState,
+        complaint_hour: 14,
+      }, pred);
+      setCaseLivePrediction(pred);
+      setCaseLiveShap(shap);
+      if (onAuditLog) {
+        onAuditLog(`Live ML Re-Analysis executed for ${activeCase.id}`, activeCase.id, 'CASE');
+      }
+    } catch (err) {
+      console.warn('Re-analysis error:', err);
+    } finally {
+      setIsReAnalyzingCase(false);
+    }
+  };
+
+  const handleSaveNewComplaintCase = (newCase: CaseEntity) => {
+    setCases(prev => [newCase, ...prev]);
+    setActiveCase(newCase);
+    if (onAuditLog) {
+      onAuditLog(`New Case ${newCase.id} created from Live ML Model Prediction`, newCase.id, 'CASE');
+    }
+  };
+
   const getStatusBadge = (status: CaseStatus) => {
     switch (status) {
       case 'SURVEILLANCE_ACTIVE':
@@ -203,24 +261,35 @@ export default function CaseManagementModule({
           </div>
         </div>
 
-        {/* Global Case Search Box */}
-        <div className="relative w-full sm:w-80">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search Case ID, Phone, Mule Account, City..."
-            className="w-full bg-black border border-white/15 px-3 py-1.5 pl-8 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-neon rounded-none"
-          />
-          <Search className="h-3.5 w-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2 text-zinc-500 hover:text-white text-xs"
-            >
-              ✕
-            </button>
-          )}
+        {/* Actions: Ingest Complaint with AI & Search Box */}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => setIsPredictModalOpen(true)}
+            className="px-3 py-1.5 bg-neon hover:bg-[#b8e600] text-black font-bold text-xs uppercase flex items-center gap-1.5 shadow-[0_0_12px_rgba(206,255,0,0.3)] transition-all cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-black" />
+            <span>[ ⚡ INGEST COMPLAINT & RUN AI PREDICTION ]</span>
+          </button>
+
+          {/* Global Case Search Box */}
+          <div className="relative w-full sm:w-72">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search Case ID, Phone, Mule..."
+              className="w-full bg-black border border-white/15 px-3 py-1.5 pl-8 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-neon rounded-none"
+            />
+            <Search className="h-3.5 w-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-zinc-500 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
       </div>
@@ -785,29 +854,97 @@ export default function CaseManagementModule({
                 </div>
               )}
 
-              {/* TAB 5: INTELLIGENCE REPORT */}
+              {/* TAB 5: INTELLIGENCE REPORT (POWERED BY LIVE ML API) */}
               {activeTab === 'intelligence' && (
                 <div className="space-y-4">
                   <div className="p-4 bg-[#141414] border border-white/10 space-y-3">
-                    <div className="text-xs font-bold text-neon uppercase flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      PREDICTIVE ATM WITHDRAWAL CORRIDOR REPORT
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] p-2.5 bg-black border border-white/5">
-                      <div><span className="text-zinc-500 text-[9px] block">TARGET HOTSPOT:</span><strong>{activeCase.predictedZone}</strong></div>
-                      <div><span className="text-zinc-500 text-[9px] block">CONFIDENCE:</span><strong className="text-neon">{activeCase.confidenceScore}% High Probability</strong></div>
-                      <div><span className="text-zinc-500 text-[9px] block">EST. TIME WINDOW:</span><strong className="text-amber-400">{activeCase.predictedTimeWindow}</strong></div>
-                      <div><span className="text-zinc-500 text-[9px] block">RECOVERY OUTLOOK:</span><strong className="text-emerald-400">High (72% Chance)</strong></div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-bold text-neon uppercase flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        PREDICTIVE ATM WITHDRAWAL CORRIDOR REPORT
+                      </div>
+                      <button
+                        onClick={handleReAnalyzeActiveCase}
+                        disabled={isReAnalyzingCase}
+                        className="px-3 py-1 bg-neon/10 hover:bg-neon text-neon hover:text-black border border-neon/50 text-[10px] font-bold uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${isReAnalyzingCase ? 'animate-spin text-black' : ''}`} />
+                        <span>{isReAnalyzingCase ? 'INFERRING...' : '⚡ RE-ANALYZE VIA LIVE ML MODEL'}</span>
+                      </button>
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-zinc-300">
-                      <div className="text-[10px] font-bold text-white uppercase">[ RECOMMENDED LAW ENFORCEMENT PROTOCOL ]</div>
-                      <ol className="list-decimal pl-4 space-y-1 text-zinc-300 text-[11px]">
-                        <li>Dispatch two undercover surveillance units to Sindhi Camp SBI ATM perimeter.</li>
-                        <li>Alert nodal officer Priya Nambiar at SBI to place debit block on suspect mule cards.</li>
-                        <li>Coordinate with Maharashtra Crime Branch regarding source victim FIR #412/2026.</li>
-                      </ol>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] p-2.5 bg-black border border-white/5">
+                      <div>
+                        <span className="text-zinc-500 text-[9px] block">TARGET HOTSPOT:</span>
+                        <strong>{caseLivePrediction ? caseLivePrediction.zone_prediction.predicted_zone : activeCase.predictedZone}</strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-[9px] block">CONFIDENCE:</span>
+                        <strong className="text-neon">
+                          {caseLivePrediction 
+                            ? `${((caseLivePrediction.top_predicted_states[0]?.probability || 0.8) * 100).toFixed(1)}%` 
+                            : `${activeCase.confidenceScore}%`} High Probability
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-[9px] block">EST. TIME WINDOW:</span>
+                        <strong className="text-amber-400">
+                          {caseLivePrediction ? `${caseLivePrediction.estimated_time_window_hours} Hours` : activeCase.predictedTimeWindow}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 text-[9px] block">STATUS:</span>
+                        <strong className="text-emerald-400">
+                          {caseLivePrediction ? `${caseLivePrediction.processing_latency_ms.toFixed(1)}ms (Live API)` : 'Calibrated'}
+                        </strong>
+                      </div>
                     </div>
+
+                    {/* LIVE MODEL ACTIONS */}
+                    {caseLivePrediction ? (
+                      <div className="space-y-1.5 text-xs text-zinc-300">
+                        <div className="text-[10px] font-bold text-white uppercase">[ LIVE ML INTERDICTION PROTOCOLS ]</div>
+                        <ol className="list-decimal pl-4 space-y-1 text-zinc-300 text-[11px]">
+                          {caseLivePrediction.recommended_actions.map((act, i) => (
+                            <li key={i}>{act}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 text-xs text-zinc-300">
+                        <div className="text-[10px] font-bold text-white uppercase">[ RECOMMENDED LAW ENFORCEMENT PROTOCOL ]</div>
+                        <ol className="list-decimal pl-4 space-y-1 text-zinc-300 text-[11px]">
+                          <li>Dispatch two undercover surveillance units to Sindhi Camp SBI ATM perimeter.</li>
+                          <li>Alert nodal officer Priya Nambiar at SBI to place debit block on suspect mule cards.</li>
+                          <li>Coordinate with Maharashtra Crime Branch regarding source victim FIR #412/2026.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {/* LIVE SHAP EXPLANATION ACCORDION IF RUN */}
+                    {caseLiveShap && (
+                      <div className="p-3 bg-black border border-white/10 space-y-2 mt-3">
+                        <div className="text-[10px] font-bold text-neon uppercase flex items-center justify-between">
+                          <span>SHAP Feature Importance Attribution</span>
+                          <span className="text-zinc-500 text-[9px]">Model: XGBoost / Neural Net</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">{caseLiveShap.summary}</p>
+                        <div className="space-y-1.5 pt-1">
+                          {caseLiveShap.topFactors.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between text-[10px] bg-[#141414] p-1.5 border border-white/5">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`font-bold px-1 py-0.2 ${f.direction === 'positive' ? 'text-red-400 bg-red-500/10' : 'text-emerald-400 bg-emerald-500/10'}`}>
+                                  {f.direction === 'positive' ? `+${f.impactPercentage}%` : `-${f.impactPercentage}%`}
+                                </span>
+                                <span className="text-white font-medium">{f.feature}</span>
+                              </div>
+                              <span className="text-zinc-400">{f.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               )}
@@ -906,6 +1043,18 @@ export default function CaseManagementModule({
           </div>
         </div>
       )}
+
+      {/* 7. LIVE COMPLAINT PREDICTION MODAL */}
+      <ComplaintPredictorModal
+        isOpen={isPredictModalOpen}
+        onClose={() => setIsPredictModalOpen(false)}
+        onSaveToCases={handleSaveNewComplaintCase}
+        onBroadcastAlert={(alertText) => {
+          if (onAuditLog) {
+            onAuditLog(alertText, 'ALERT', 'BROADCAST');
+          }
+        }}
+      />
 
     </div>
   );

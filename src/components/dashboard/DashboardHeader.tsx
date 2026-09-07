@@ -13,6 +13,7 @@ import {
   PREDICTED_HOTSPOTS_DATA, 
   LIVE_ALERTS_DATA 
 } from '@/data/dashboardData';
+import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
 
 interface DashboardHeaderProps {
   onSelectEntity?: (type: string, id: string, coords: [number, number], zoom?: number) => void;
@@ -31,7 +32,27 @@ export default function DashboardHeader({
   const [alertsDropdownOpen, setAlertsDropdownOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [alerts, setAlerts] = useState(LIVE_ALERTS_DATA);
-  const [systemActive, setSystemActive] = useState(true);
+  const [modelHealth, setModelHealth] = useState<ModelHealthStatus | null>(null);
+  const [isRefreshingHealth, setIsRefreshingHealth] = useState(false);
+
+  // Poll Model API Health every 60s
+  const refreshHealth = React.useCallback(async () => {
+    setIsRefreshingHealth(true);
+    try {
+      const health = await getModelHealth();
+      setModelHealth(health);
+    } catch (e) {
+      console.warn('Failed to poll health:', e);
+    } finally {
+      setIsRefreshingHealth(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHealth();
+    const interval = setInterval(refreshHealth, 60000);
+    return () => clearInterval(interval);
+  }, [refreshHealth]);
 
   // Live IST Clock
   useEffect(() => {
@@ -203,16 +224,40 @@ export default function DashboardHeader({
           <span>{istTime || 'SYNCHRONIZING IST...'}</span>
         </div>
 
-        {/* System Active Telemetry Indicator */}
+        {/* Live ML Model Status Telemetry Indicator */}
         <div 
-          onClick={() => setSystemActive(!systemActive)}
-          className="flex items-center gap-1.5 px-2 py-1 bg-black/60 border border-white/10 font-mono text-[9px] uppercase cursor-pointer hover:border-white/30 transition-colors"
-          title="Click to toggle simulated feed health"
+          onClick={refreshHealth}
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-black/80 border border-white/15 font-mono text-[9px] uppercase cursor-pointer hover:border-neon transition-colors"
+          title={`Click to re-ping model API (Lat: ${modelHealth?.latencyMs || 0}ms). Loaded: zone_stage1, zone_stage2, state_predictor, district_model, district_risk_table`}
         >
-          <span className={`h-1.5 w-1.5 ${systemActive ? 'bg-neon animate-pulse' : 'bg-red-500'}`} />
-          <span className={systemActive ? 'text-zinc-300' : 'text-red-400 font-bold'}>
-            {systemActive ? 'SYSTEM ACTIVE' : 'FEED DISCONNECTED'}
+          <span 
+            className={`h-1.5 w-1.5 ${
+              modelHealth?.status === 'healthy' 
+                ? 'bg-neon animate-pulse' 
+                : modelHealth?.status === 'degraded'
+                ? 'bg-amber-400 animate-pulse'
+                : 'bg-red-500'
+            }`} 
+          />
+          <span className="font-bold tracking-wider">
+            {modelHealth?.status === 'healthy' && (
+              <span className="text-zinc-200">
+                MODEL LIVE • <span className="text-neon">{modelHealth.modelsLoadedCount}/5 ACTIVE</span>
+                <span className="text-zinc-400 font-normal ml-1">({modelHealth.latencyMs}ms)</span>
+              </span>
+            )}
+            {modelHealth?.status === 'degraded' && (
+              <span className="text-amber-400">
+                MODEL DEGRADED • {modelHealth.modelsLoadedCount}/5 ACTIVE ({modelHealth.latencyMs}ms)
+              </span>
+            )}
+            {(!modelHealth || modelHealth.status === 'offline') && (
+              <span className="text-red-400">
+                MODEL OFFLINE • USING CACHED DATA
+              </span>
+            )}
           </span>
+          {isRefreshingHealth && <span className="text-zinc-500 text-[8px] animate-spin">⟳</span>}
         </div>
       </div>
 

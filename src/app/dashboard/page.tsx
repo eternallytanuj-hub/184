@@ -16,7 +16,9 @@ import {
   CORRIDORS_DATA,
   ATMEntity,
   PoliceStationEntity,
-  BankBranchEntity
+  BankBranchEntity,
+  LIVE_ALERTS_DATA,
+  LiveAlertItem,
 } from '@/data/dashboardData';
 import { Layers, Shield, Map as MapIcon, Sliders } from 'lucide-react';
 
@@ -55,6 +57,9 @@ export default function DashboardPage() {
 
   // Map FlyTo target
   const [flyToCoords, setFlyToCoords] = useState<{ coords: [number, number]; zoom?: number } | null>(null);
+
+  // Live Alerts Feed
+  const [alerts, setAlerts] = useState<LiveAlertItem[]>(LIVE_ALERTS_DATA);
 
   // Modals state
   const [criticalAlertOpen, setCriticalAlertOpen] = useState(false);
@@ -140,7 +145,7 @@ export default function DashboardPage() {
       <DashboardHeader
         onSelectEntity={handleSelectFromHeader}
         onTriggerSOS={() => setCriticalAlertOpen(true)}
-        unreadCount={3}
+        unreadCount={alerts.filter(a => !a.acknowledged).length}
       />
 
       {/* 2. MAIN 3-PANEL COMMAND CENTER LAYOUT */}
@@ -201,7 +206,8 @@ export default function DashboardPage() {
             selectedEntity={selectedEntity}
             onSelectZone={handleSelectZone}
             onSelectATM={handleSelectATM}
-            onAcknowledgeAlert={(id) => {}}
+            alerts={alerts}
+            onAcknowledgeAlert={(id) => setAlerts(prev => prev.map(a => a.id === id ? { ...a, acknowledged: true } : a))}
           />
         </div>
 

@@ -9,6 +9,7 @@ import {
   Radio, LogOut, FileText, Map, RefreshCw
 } from 'lucide-react';
 import { OfficerRole, OFFICER_ROLES, OfficerProfile } from '@/data/collabData';
+import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
 
 interface CollabHeaderProps {
   currentRole: OfficerRole;
@@ -28,7 +29,24 @@ export default function CollabHeader({
   const triggerAuthModal = onLoginClick || onOpenAuthModal || (() => {});
   const [istTime, setIstTime] = useState('');
   const [sessionSeconds, setSessionSeconds] = useState(900); // 15 minutes auto-logout
+  const [modelHealth, setModelHealth] = useState<ModelHealthStatus | null>(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+
+  // Poll Model API Health every 60s
+  const refreshHealth = React.useCallback(async () => {
+    try {
+      const health = await getModelHealth();
+      setModelHealth(health);
+    } catch (e) {
+      console.warn('Collab header health poll failed:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHealth();
+    const timer = setInterval(refreshHealth, 60000);
+    return () => clearInterval(timer);
+  }, [refreshHealth]);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState([
     {
@@ -178,6 +196,27 @@ export default function CollabHeader({
             <div className="px-2 py-1 bg-neon/10 border border-neon text-neon text-[10px] uppercase font-bold flex items-center gap-1.5">
               <Radio className="h-3 w-3 animate-pulse" />
               <span>COLLAB ACTIVE</span>
+            </div>
+
+            {/* Live Model Badge */}
+            <div 
+              onClick={refreshHealth}
+              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/15 text-[10px] uppercase font-bold flex items-center gap-1.5 cursor-pointer"
+              title={`ML Engine Status: ${modelHealth?.status === 'healthy' ? '5/5 Models Active' : 'Offline / Cached'} (Latency: ${modelHealth?.latencyMs || 0}ms)`}
+            >
+              <span className={`h-1.5 w-1.5 ${
+                modelHealth?.status === 'healthy' ? 'bg-neon animate-pulse' :
+                modelHealth?.status === 'degraded' ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
+              }`} />
+              <span className={modelHealth?.status === 'healthy' ? 'text-zinc-200' : 'text-zinc-400'}>
+                {modelHealth?.status === 'healthy' ? (
+                  <>AI ENGINE: <span className="text-neon">{modelHealth.modelsLoadedCount}/5 LIVE</span></>
+                ) : modelHealth?.status === 'degraded' ? (
+                  <span className="text-amber-400">AI ENGINE: {modelHealth.modelsLoadedCount}/5</span>
+                ) : (
+                  <span className="text-red-400">AI ENGINE: CACHED</span>
+                )}
+              </span>
             </div>
           </div>
         </div>
