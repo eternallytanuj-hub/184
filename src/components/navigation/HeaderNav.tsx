@@ -1,12 +1,151 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import { supabase } from '@/lib/auth/supabaseClient';
+
+interface OfficerSession {
+  badgeId: string;
+  name: string;
+  role?: string;
+  persona?: string;
+  email?: string;
+}
 
 export default function HeaderNav() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [officer, setOfficer] = useState<OfficerSession | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAuth = async () => {
+      let currentOfficer: OfficerSession | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('cybercast_officer');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object' && parsed.badgeId) {
+              currentOfficer = parsed as OfficerSession;
+            }
+          }
+        } catch {
+          currentOfficer = null;
+        }
+      }
+
+      if (currentOfficer) {
+        if (isMounted) {
+          setOfficer(currentOfficer);
+          setIsAuthenticated(true);
+        }
+        return;
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) {
+          if (isMounted) {
+            setIsAuthenticated(true);
+            if (typeof window !== 'undefined') {
+              try {
+                const stored2 = localStorage.getItem('cybercast_officer');
+                if (stored2) {
+                  const parsed2 = JSON.parse(stored2);
+                  if (parsed2 && typeof parsed2 === 'object' && parsed2.badgeId) {
+                    setOfficer(parsed2 as OfficerSession);
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('HeaderNav: error verifying session:', err);
+      }
+
+      if (isMounted) {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    syncAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT') {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      } else if (session) {
+        syncAuth();
+      } else {
+        syncAuth();
+      }
+    });
+
+    const handleAuthChange = () => {
+      if (!isMounted) return;
+      syncAuth();
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!isMounted) return;
+      if (e.key === 'cybercast_officer' || !e.key) {
+        syncAuth();
+      }
+    };
+
+    window.addEventListener('cybercast_auth_change', handleAuthChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+      window.removeEventListener('cybercast_auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error during signOut:', err);
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cybercast_officer');
+      }
+    } catch (err) {
+      console.error('Error removing cybercast_officer:', err);
+    }
+
+    setOfficer(null);
+    setIsAuthenticated(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cybercast_auth_change'));
+    }
+
+    try {
+      router.push('/');
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#0c0c0c]/90 backdrop-blur-md border-b border-white/10">
@@ -107,6 +246,26 @@ export default function HeaderNav() {
 
           {/* Right Action Group */}
           <div className="hidden sm:flex items-center gap-2.5">
+            {isAuthenticated && (
+              <div className="flex items-center gap-2">
+                {officer && (
+                  <div className="hidden xl:flex items-center gap-1.5 px-2 py-1 bg-black/80 border border-white/10 font-mono text-[9px] uppercase tracking-wider text-zinc-300">
+                    <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
+                    <span className="text-neon font-bold">{officer.badgeId}</span>
+                    <span className="text-zinc-500">|</span>
+                    <span className="text-zinc-300 truncate max-w-[120px]">{officer.name}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="px-2.5 py-1.5 border border-white/15 bg-black hover:border-red-500/50 hover:text-red-400 text-zinc-300 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
+                  title="Sign out of CyberCast session"
+                >
+                  [ SIGN OUT ]
+                </button>
+              </div>
+            )}
             <Link
               href="/collab"
               className="px-2.5 py-1.5 border border-white/15 bg-black hover:border-neon text-white hover:text-neon font-mono text-[10px] uppercase tracking-wider transition-colors"
@@ -202,6 +361,18 @@ export default function HeaderNav() {
             </Link>
           </div>
           <div className="pt-2 space-y-2">
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="w-full flex items-center justify-center p-2.5 bg-black border border-red-500/40 hover:border-red-400 text-red-400 font-mono text-xs uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
+              >
+                [ SIGN OUT ]
+              </button>
+            )}
             <Link
               href="/collab"
               onClick={() => setMobileMenuOpen(false)}

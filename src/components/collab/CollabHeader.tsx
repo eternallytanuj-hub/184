@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   Shield, Bell, Lock, User, Clock, AlertTriangle, 
   Fingerprint, ChevronDown, CheckCircle2, ArrowLeft,
@@ -10,6 +11,15 @@ import {
 } from 'lucide-react';
 import { OfficerRole, OFFICER_ROLES, OfficerProfile } from '@/data/collabData';
 import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
+import { supabase } from '@/lib/auth/supabaseClient';
+
+interface OfficerSession {
+  badgeId: string;
+  name: string;
+  role?: string;
+  persona?: string;
+  email?: string;
+}
 
 interface CollabHeaderProps {
   currentRole: OfficerRole;
@@ -26,11 +36,14 @@ export default function CollabHeader({
   onOpenAuthModal,
   onLoginClick,
 }: CollabHeaderProps) {
+  const router = useRouter();
   const triggerAuthModal = onLoginClick || onOpenAuthModal || (() => {});
   const [istTime, setIstTime] = useState('');
   const [sessionSeconds, setSessionSeconds] = useState(900); // 15 minutes auto-logout
   const [modelHealth, setModelHealth] = useState<ModelHealthStatus | null>(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [officer, setOfficer] = useState<OfficerSession | null>(null);
 
   // Poll Model API Health every 60s
   const refreshHealth = React.useCallback(async () => {
@@ -105,6 +118,133 @@ export default function CollabHeader({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Monitor Supabase Auth & LocalStorage Session
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAuth = async () => {
+      let currentOfficer: OfficerSession | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('cybercast_officer');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object' && parsed.badgeId) {
+              currentOfficer = parsed as OfficerSession;
+            }
+          }
+        } catch {
+          currentOfficer = null;
+        }
+      }
+
+      if (currentOfficer) {
+        if (isMounted) {
+          setOfficer(currentOfficer);
+          setIsAuthenticated(true);
+        }
+        return;
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) {
+          if (isMounted) {
+            setIsAuthenticated(true);
+            if (typeof window !== 'undefined') {
+              try {
+                const stored2 = localStorage.getItem('cybercast_officer');
+                if (stored2) {
+                  const parsed2 = JSON.parse(stored2);
+                  if (parsed2 && typeof parsed2 === 'object' && parsed2.badgeId) {
+                    setOfficer(parsed2 as OfficerSession);
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('CollabHeader: error checking session:', err);
+      }
+
+      if (isMounted) {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    syncAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT') {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      } else if (session) {
+        syncAuth();
+      } else {
+        syncAuth();
+      }
+    });
+
+    const handleAuthChange = () => {
+      if (!isMounted) return;
+      syncAuth();
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!isMounted) return;
+      if (e.key === 'cybercast_officer' || !e.key) {
+        syncAuth();
+      }
+    };
+
+    window.addEventListener('cybercast_auth_change', handleAuthChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+      window.removeEventListener('cybercast_auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error during signOut in CollabHeader:', err);
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cybercast_officer');
+      }
+    } catch (err) {
+      console.error('Error removing cybercast_officer:', err);
+    }
+
+    setOfficer(null);
+    setIsAuthenticated(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cybercast_auth_change'));
+    }
+
+    try {
+      router.push('/');
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
+  };
 
   const formatSessionTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -361,15 +501,37 @@ export default function CollabHeader({
             )}
           </div>
 
-          {/* Biometric / Login Authenticator Trigger */}
-          <button
-            onClick={triggerAuthModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ceff00] hover:bg-[#b8e600] text-black font-mono text-xs font-bold uppercase transition-colors rounded-none shadow-[0_0_10px_rgba(206,255,0,0.2)]"
-            title="Biometric & Security Credentials"
-          >
-            <Fingerprint className="h-3.5 w-3.5 text-neon" />
-            <span>AUTH ID</span>
-          </button>
+          {/* Biometric / Login Authenticator Trigger or Sign Out */}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              {officer && (
+                <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-black/80 border border-white/15 text-[10px] font-mono text-zinc-300">
+                  <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
+                  <span className="text-neon font-bold">{officer.badgeId}</span>
+                  <span className="text-zinc-500">|</span>
+                  <span className="text-zinc-300 truncate max-w-[130px]">{officer.name}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-black border border-white/20 hover:border-red-500/60 text-zinc-300 hover:text-red-400 font-mono text-xs font-bold uppercase transition-colors rounded-none cursor-pointer"
+                title="Sign out and terminate session"
+              >
+                <LogOut className="h-3.5 w-3.5 text-red-400" />
+                <span>[ SIGN OUT ]</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={triggerAuthModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ceff00] hover:bg-[#b8e600] text-black font-mono text-xs font-bold uppercase transition-colors rounded-none shadow-[0_0_10px_rgba(206,255,0,0.2)]"
+              title="Biometric & Security Credentials"
+            >
+              <Fingerprint className="h-3.5 w-3.5 text-neon" />
+              <span>AUTH ID</span>
+            </button>
+          )}
 
         </div>
 

@@ -11,23 +11,27 @@ import DataSourcesSection from '@/components/sections/DataSourcesSection';
 import ChallengesSection from '@/components/sections/ChallengesSection';
 import FeedbackLoopSection from '@/components/sections/FeedbackLoopSection';
 import FooterSection from '@/components/sections/FooterSection';
+import LandingAuthInterceptor from '@/components/landing/LandingAuthInterceptor';
 
 export default function Home() {
   return (
-    <main className="min-h-screen w-full bg-obsidian text-white flex flex-col">
-      <HeaderNav />
-      <HeroSection />
-      <ProblemSection />
-      <SolutionSection />
-      <FeaturesSection />
-      <HowItWorksSection />
-      <ImpactSection />
-      <EcosystemSection />
-      <TechStackSection />
-      <DataSourcesSection />
-      <ChallengesSection />
-      <FeedbackLoopSection />
-      <FooterSection />
-    </main>
+    <LandingAuthInterceptor>
+      <main className="min-h-screen w-full bg-obsidian text-white flex flex-col">
+        <HeaderNav />
+        <HeroSection />
+        <ProblemSection />
+        <SolutionSection />
+        <FeaturesSection />
+        <HowItWorksSection />
+        <ImpactSection />
+        <EcosystemSection />
+        <TechStackSection />
+        <DataSourcesSection />
+        <ChallengesSection />
+        <FeedbackLoopSection />
+        <FooterSection />
+      </main>
+    </LandingAuthInterceptor>
   );
 }
+

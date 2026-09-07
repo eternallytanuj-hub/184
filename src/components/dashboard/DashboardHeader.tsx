@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   Search, Bell, User, AlertTriangle, CheckCircle, 
-  MapPin, Clock, Shield, ExternalLink, X, ChevronDown 
+  MapPin, Clock, Shield, ExternalLink, X, ChevronDown, LogOut 
 } from 'lucide-react';
 import { 
   ATMS_DATA, 
@@ -14,6 +15,15 @@ import {
   LIVE_ALERTS_DATA 
 } from '@/data/dashboardData';
 import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
+import { supabase } from '@/lib/auth/supabaseClient';
+
+interface OfficerSession {
+  badgeId: string;
+  name: string;
+  role?: string;
+  persona?: string;
+  email?: string;
+}
 
 interface DashboardHeaderProps {
   onSelectEntity?: (type: string, id: string, coords: [number, number], zoom?: number) => void;
@@ -26,6 +36,7 @@ export default function DashboardHeader({
   onTriggerSOS,
   unreadCount = 3,
 }: DashboardHeaderProps) {
+  const router = useRouter();
   const [istTime, setIstTime] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResultsOpen, setSearchResultsOpen] = useState(false);
@@ -34,6 +45,8 @@ export default function DashboardHeader({
   const [alerts, setAlerts] = useState(LIVE_ALERTS_DATA);
   const [modelHealth, setModelHealth] = useState<ModelHealthStatus | null>(null);
   const [isRefreshingHealth, setIsRefreshingHealth] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [officer, setOfficer] = useState<OfficerSession | null>(null);
 
   // Poll Model API Health every 60s
   const refreshHealth = React.useCallback(async () => {
@@ -75,6 +88,133 @@ export default function DashboardHeader({
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Monitor Supabase Auth & LocalStorage Session
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAuth = async () => {
+      let currentOfficer: OfficerSession | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('cybercast_officer');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === 'object' && parsed.badgeId) {
+              currentOfficer = parsed as OfficerSession;
+            }
+          }
+        } catch {
+          currentOfficer = null;
+        }
+      }
+
+      if (currentOfficer) {
+        if (isMounted) {
+          setOfficer(currentOfficer);
+          setIsAuthenticated(true);
+        }
+        return;
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session) {
+          if (isMounted) {
+            setIsAuthenticated(true);
+            if (typeof window !== 'undefined') {
+              try {
+                const stored2 = localStorage.getItem('cybercast_officer');
+                if (stored2) {
+                  const parsed2 = JSON.parse(stored2);
+                  if (parsed2 && typeof parsed2 === 'object' && parsed2.badgeId) {
+                    setOfficer(parsed2 as OfficerSession);
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('DashboardHeader: error checking session:', err);
+      }
+
+      if (isMounted) {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    syncAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT') {
+        setOfficer(null);
+        setIsAuthenticated(false);
+      } else if (session) {
+        syncAuth();
+      } else {
+        syncAuth();
+      }
+    });
+
+    const handleAuthChange = () => {
+      if (!isMounted) return;
+      syncAuth();
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!isMounted) return;
+      if (e.key === 'cybercast_officer' || !e.key) {
+        syncAuth();
+      }
+    };
+
+    window.addEventListener('cybercast_auth_change', handleAuthChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+      window.removeEventListener('cybercast_auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error during signOut in DashboardHeader:', err);
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cybercast_officer');
+      }
+    } catch (err) {
+      console.error('Error removing cybercast_officer:', err);
+    }
+
+    setOfficer(null);
+    setIsAuthenticated(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cybercast_auth_change'));
+    }
+
+    try {
+      router.push('/');
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
+    }
+  };
 
   // Global Search Suggestions
   const searchResults = React.useMemo(() => {
@@ -334,6 +474,19 @@ export default function DashboardHeader({
           <span>[ REPORT & COLLAB ]</span>
         </Link>
 
+        {/* Header Sign Out Button */}
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex items-center gap-1 font-mono text-[10px] text-zinc-300 hover:text-red-400 uppercase px-2 py-1 bg-black border border-white/15 hover:border-red-500/50 transition-colors rounded-none cursor-pointer"
+            title="Terminate session and sign out"
+          >
+            <LogOut className="h-3 w-3 text-red-400" />
+            <span>[ SIGN OUT ]</span>
+          </button>
+        )}
+
         {/* Notification Bell with Badge */}
         <div className="relative">
           <button
@@ -429,9 +582,19 @@ export default function DashboardHeader({
             className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 bg-[#141414] border border-white/15 hover:border-white/30 text-zinc-300 transition-colors"
           >
             <div className="h-4 w-4 bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-neon">
-              VS
+              {officer?.name
+                ? officer.name
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                : 'VS'}
             </div>
-            <span className="hidden md:inline font-mono text-[10px] text-white">INSP. SHARMA</span>
+            <span className="hidden md:inline font-mono text-[10px] text-white">
+              {officer?.name ? officer.name.toUpperCase() : 'INSP. SHARMA'}
+            </span>
             <ChevronDown className="h-3 w-3 text-zinc-500" />
           </button>
 
@@ -439,9 +602,17 @@ export default function DashboardHeader({
           {profileDropdownOpen && (
             <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#121212] border border-white/20 shadow-2xl z-50 font-mono text-xs divide-y divide-white/10">
               <div className="p-3 bg-black">
-                <div className="font-bold text-white text-xs">Inspector V. Sharma, RPS</div>
-                <div className="text-zinc-400 text-[10px]">Addl. SP (Cybercrime Division)</div>
-                <div className="text-neon text-[9px] mt-1 font-semibold">ROLE: I4C NATIONAL ADMIN</div>
+                <div className="font-bold text-white text-xs">
+                  {officer?.name || 'Inspector V. Sharma, RPS'}
+                </div>
+                <div className="text-zinc-400 text-[10px]">
+                  {officer?.persona || 'Addl. SP (Cybercrime Division)'}
+                </div>
+                <div className="text-neon text-[9px] mt-1 font-semibold">
+                  {officer?.badgeId
+                    ? `BADGE: ${officer.badgeId} • ${(officer.role || 'OFFICER').toUpperCase()}`
+                    : 'ROLE: I4C NATIONAL ADMIN'}
+                </div>
               </div>
 
               <div className="p-2 space-y-1 text-[11px]">
@@ -462,12 +633,16 @@ export default function DashboardHeader({
               </div>
 
               <div className="p-2 bg-black">
-                <Link
-                  href="/"
-                  className="block w-full text-center py-1.5 bg-zinc-900 border border-white/10 text-red-400 hover:bg-red-950/40 text-[10px] uppercase font-bold"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    handleSignOut();
+                  }}
+                  className="block w-full text-center py-1.5 bg-zinc-900 border border-white/10 hover:border-red-500/50 text-red-400 hover:bg-red-950/40 text-[10px] uppercase font-bold font-mono rounded-none cursor-pointer"
                 >
-                  TERMINATE SESSION / LOGOUT
-                </Link>
+                  [ SIGN OUT ]
+                </button>
               </div>
             </div>
           )}

@@ -59,6 +59,12 @@ export default function Button({
     return (
       <Link
         href={href}
+        onClick={props.onClick as unknown as React.MouseEventHandler<HTMLAnchorElement>}
+        id={props.id}
+        title={props.title}
+        tabIndex={props.tabIndex}
+        role={props.role}
+        aria-label={props['aria-label']}
         className={cn(baseClasses, variant !== 'bracket' && sizeClasses[size], variantClasses, className)}
       >
         {content}
