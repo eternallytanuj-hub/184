@@ -24,7 +24,11 @@ import {
   Calendar,
   X,
   ChevronRight,
-  Flame
+  Flame,
+  Radio,
+  Send,
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
 
 interface TaskManagementModuleProps {
@@ -50,6 +54,15 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
     location: 'Jaipur North / Sindhi Camp',
     requiredAction: '',
   });
+
+  // SMS Alert Modal State
+  const [smsModalTask, setSmsModalTask] = useState<TaskItem | null>(null);
+  const [smsPhone, setSmsPhone] = useState('');
+  const [smsCustomMessage, setSmsCustomMessage] = useState('');
+  const [smsPriority, setSmsPriority] = useState<'FLASH_P1' | 'URGENT_P2'>('FLASH_P1');
+  const [isTransmittingSms, setIsTransmittingSms] = useState(false);
+  const [dispatchedSmsTasks, setDispatchedSmsTasks] = useState<Record<string, { timestamp: string; phone: string }>>({});
+  const [toastNotification, setToastNotification] = useState<{ id: number; title: string; subtitle: string } | null>(null);
 
   const statuses: TaskItem['status'][] = [
     'PENDING',
@@ -94,6 +107,61 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
     alert(`[I4C SLA DIRECTIVE] Task ${taskId} escalated to State Nodal and Central Command under Section 4H Immediate Rapid Intervention Protocol.`);
   };
 
+  const handleOpenSmsModal = (task: TaskItem) => {
+    const officerPhones: Record<string, string> = {
+      'SI Manoj Meena': '+91 98290 41209',
+      'Priya Nambiar': '+91 99801 77312',
+      'Insp. P. Verma': '+91 94140 88921',
+      'Supt. R. Sharma': '+91 98110 55432',
+      'Dr. A. K. Saxena': '+91 98100 23411',
+    };
+    const defaultPhone = officerPhones[task.assignedOfficerName] || '+91 98290 41209';
+    
+    setSmsModalTask(task);
+    setSmsPhone(defaultPhone);
+    setSmsPriority(task.priority === 'Critical' ? 'FLASH_P1' : 'URGENT_P2');
+    setSmsCustomMessage(
+      `[CYBERCAST FLASH DIRECTIVE] URGENT INTERVENTION: Deploy immediately to ${task.location} for Case ${task.caseId}. Mandate: ${task.requiredAction}. Target SLA: ${task.deadline}. Authorized by: ${currentOfficer.name} (${currentOfficer.roleName}). Confirm arrival on site.`
+    );
+  };
+
+  const handleTransmitSms = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!smsModalTask) return;
+
+    setIsTransmittingSms(true);
+
+    setTimeout(() => {
+      const nowTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' IST';
+      const taskId = smsModalTask.id;
+      const targetOfficer = smsModalTask.assignedOfficerName;
+      const targetPhone = smsPhone;
+
+      setDispatchedSmsTasks((prev) => ({
+        ...prev,
+        [taskId]: { timestamp: nowTime, phone: targetPhone },
+      }));
+
+      setIsTransmittingSms(false);
+      setSmsModalTask(null);
+
+      if (onAuditLog) {
+        onAuditLog(`DISPATCHED_IMMEDIATE_SMS_ALERT_TO_${targetOfficer.toUpperCase().replace(/[^A-Z]/g, '_')}`, taskId, 'TASK');
+      }
+
+      setToastNotification({
+        id: Date.now(),
+        title: `POLICE ALERT SMS TRANSMITTED: ${targetOfficer} (${targetPhone})`,
+        subtitle: `Encrypted directive sent via DLT Trunk (1407/POLICE-FLASH). Gateway delivery confirmed with reference #DLT-${Math.floor(100000 + Math.random() * 900000)}.`,
+      });
+
+      // Auto dismiss toast after 6 seconds
+      setTimeout(() => {
+        setToastNotification((curr) => (curr ? null : curr));
+      }, 6000);
+    }, 700);
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskForm.title || !newTaskForm.requiredAction) {
@@ -136,6 +204,28 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
 
   return (
     <div className="space-y-6">
+      {/* Tactical Flash SMS Toast Banner */}
+      {toastNotification && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/40 text-amber-300 font-mono text-xs flex items-start justify-between gap-3 rounded-none shadow-[0_0_20px_rgba(245,158,11,0.15)] animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-start gap-3">
+            <Smartphone className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                <span>[ DLT PROTOCOL 1407 ]</span>
+                <span className="text-amber-300">{toastNotification.title}</span>
+              </div>
+              <div className="text-[11px] text-zinc-300 mt-1">{toastNotification.subtitle}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="text-white/40 hover:text-white p-1 shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Module Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-[#121212] border border-white/10 rounded-none">
         <div>
@@ -312,6 +402,13 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
                           SLA ESCALATED (I4C NOTIFIED)
                         </span>
                       )}
+
+                      {dispatchedSmsTasks[t.id] && (
+                        <span className="text-[9px] font-mono font-bold text-amber-300 bg-amber-500/15 px-2 py-0.5 border border-amber-500/40 rounded-none flex items-center gap-1 shadow-[0_0_8px_rgba(245,158,11,0.2)]">
+                          <Smartphone className="w-3 h-3 text-amber-400" />
+                          SMS DISPATCHED ({dispatchedSmsTasks[t.id].timestamp})
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-base font-bold text-white font-mono uppercase tracking-wide">
@@ -377,6 +474,22 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         Report Impediment
+                      </button>
+                    )}
+
+                    {/* CTA Button: Send Immediate Alert SMS to Officer */}
+                    {t.status !== 'COMPLETED' && (
+                      <button
+                        onClick={() => handleOpenSmsModal(t)}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-mono font-bold uppercase rounded-none transition-colors border ${
+                          dispatchedSmsTasks[t.id]
+                            ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/60 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                            : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
+                        }`}
+                        title="Dispatch immediate tactical encrypted SMS to assigned field officer"
+                      >
+                        <Radio className={`w-3.5 h-3.5 ${dispatchedSmsTasks[t.id] ? 'text-amber-400' : 'text-amber-400 animate-pulse'}`} />
+                        <span>{dispatchedSmsTasks[t.id] ? 'Resend Alert SMS' : 'Send Immediate Alert SMS'}</span>
                       </button>
                     )}
                   </div>
@@ -526,6 +639,166 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
                   className="px-5 py-2 bg-[#ceff00] text-black text-xs font-mono font-bold hover:bg-[#b8e600] rounded-none uppercase tracking-wider shadow-[0_0_15px_rgba(206,255,0,0.2)]"
                 >
                   Authorize Directive
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Direct Police SMS Dispatch Modal */}
+      {smsModalTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-[#121212] border border-amber-500/40 w-full max-w-xl rounded-none shadow-[0_0_30px_rgba(245,158,11,0.15)] flex flex-col font-mono text-white">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0c0c0c]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-500/20 border border-amber-500/50">
+                  <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
+                </div>
+                <div>
+                  <span className="text-[9px] font-mono text-amber-400 tracking-widest block uppercase">
+                    MHA // I4C POLICE DISPATCH GATEWAY • DLT PROTOCOL 1407
+                  </span>
+                  <span className="text-sm font-bold text-white uppercase">
+                    Transmit Immediate Officer Alert SMS
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isTransmittingSms && setSmsModalTask(null)}
+                disabled={isTransmittingSms}
+                className="text-white/60 hover:text-white p-1 disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleTransmitSms} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Recipient Details Card */}
+              <div className="p-3.5 bg-[#0c0c0c] border border-white/10 space-y-2">
+                <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold border-b border-white/5 pb-1">
+                  Target Field Investigator Profile
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-white/40 block text-[10px]">RECIPIENT OFFICER:</span>
+                    <span className="font-bold text-white">{smsModalTask.assignedOfficerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 block text-[10px]">OPERATIONAL ROLE:</span>
+                    <span className="text-zinc-300">{smsModalTask.assignedOfficerRole}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 block text-[10px]">LINKED CASE:</span>
+                    <span className="text-[#ceff00] font-bold">{smsModalTask.caseId}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 block text-[10px]">TARGET LOCATION:</span>
+                    <span className="text-rose-400 font-bold">{smsModalTask.location}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Priority & Mobile Input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-white/70 uppercase mb-1">
+                    Registered Mobile Number *
+                  </label>
+                  <div className="relative">
+                    <Smartphone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                    <input
+                      type="text"
+                      required
+                      value={smsPhone}
+                      onChange={(e) => setSmsPhone(e.target.value)}
+                      disabled={isTransmittingSms}
+                      className="w-full bg-[#0c0c0c] border border-white/10 pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 rounded-none disabled:opacity-50"
+                    />
+                  </div>
+                  <span className="text-[9px] text-zinc-500 mt-0.5 block">CCTNS Verified Mobile SIM</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-white/70 uppercase mb-1">
+                    Dispatch Priority *
+                  </label>
+                  <select
+                    value={smsPriority}
+                    onChange={(e) => setSmsPriority(e.target.value as any)}
+                    disabled={isTransmittingSms}
+                    className="w-full bg-[#0c0c0c] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 rounded-none disabled:opacity-50"
+                  >
+                    <option value="FLASH_P1">P1 // FLASH PRIORITY (IMMEDIATE)</option>
+                    <option value="URGENT_P2">P2 // HIGH PRIORITY DISPATCH</option>
+                  </select>
+                  <span className="text-[9px] text-amber-400/80 mt-0.5 block">Carrier Class-0 Intercept Channel</span>
+                </div>
+              </div>
+
+              {/* SMS Directive Payload */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-white/70 uppercase">
+                    Tactical Directive Message Payload *
+                  </label>
+                  <span className="text-[10px] text-zinc-400">
+                    {smsCustomMessage.length} / 320 Chars
+                  </span>
+                </div>
+                <textarea
+                  rows={4}
+                  required
+                  value={smsCustomMessage}
+                  onChange={(e) => setSmsCustomMessage(e.target.value)}
+                  disabled={isTransmittingSms}
+                  className="w-full bg-[#0c0c0c] border border-white/10 p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 rounded-none leading-relaxed disabled:opacity-50"
+                />
+              </div>
+
+              {/* Telecom Gateway Notice */}
+              <div className="p-3 bg-black/60 border border-white/5 text-[10px] text-zinc-400 space-y-1">
+                <div className="flex items-center justify-between text-white/80">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    TRAI DLT REGISTRATION: VERIFIED
+                  </span>
+                  <span className="text-[#ceff00]">DLT ID: 1407982001</span>
+                </div>
+                <p className="text-zinc-500">
+                  Message will be transmitted via encrypted police cellular trunk directly to the field officer&apos;s terminal. [Demo Mode: simulated end-to-end for SIH 2026].
+                </p>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setSmsModalTask(null)}
+                  disabled={isTransmittingSms}
+                  className="px-4 py-2 border border-white/20 text-xs text-white hover:bg-white/5 rounded-none uppercase disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isTransmittingSms}
+                  className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold uppercase rounded-none flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.2)] disabled:opacity-50"
+                >
+                  {isTransmittingSms ? (
+                    <>
+                      <Radio className="w-3.5 h-3.5 animate-spin" />
+                      TRANSMITTING TO GATEWAY...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      TRANSMIT POLICE SMS DIRECTIVE
+                    </>
+                  )}
                 </button>
               </div>
             </form>

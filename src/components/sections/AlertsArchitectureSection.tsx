@@ -215,28 +215,28 @@ Alert Dispatcher (Next.js API route)
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-6 border border-white/10 bg-black/20 rounded-none text-center flex flex-col items-center justify-center gap-3 hover:border-white/30 transition-colors">
-                <Image src="https://www.vectorlogo.zone/logos/twilio/twilio-icon.svg" alt="Twilio Logo" width={32} height={32} className="h-8 w-auto opacity-90" unoptimized />
+                <Image src="/logos/twilio.svg" alt="Twilio Logo" width={32} height={32} className="h-8 w-auto opacity-95" />
                 <div>
                   <p className="font-mono text-white text-sm uppercase mb-1">Twilio</p>
                   <p className="font-mono text-zinc-500 text-[10px] uppercase">SMS Delivery</p>
                 </div>
               </div>
               <div className="p-6 border border-white/10 bg-black/20 rounded-none text-center flex flex-col items-center justify-center gap-3 hover:border-white/30 transition-colors">
-                <Image src="https://upload.wikimedia.org/wikipedia/commons/2/28/Resend_logo.svg" alt="Resend Logo" width={32} height={32} className="h-8 w-auto invert opacity-90" onError={(e) => { e.currentTarget.srcset = "https://raw.githubusercontent.com/resend/resend-node/main/github-assets/resend-icon.png"; e.currentTarget.classList.remove('invert'); }} unoptimized />
+                <Image src="/logos/resend.svg" alt="Resend Logo" width={32} height={32} className="h-8 w-auto opacity-95" />
                 <div>
                   <p className="font-mono text-white text-sm uppercase mb-1">Resend</p>
                   <p className="font-mono text-zinc-500 text-[10px] uppercase">Email Engine</p>
                 </div>
               </div>
               <div className="p-6 border border-white/10 bg-black/20 rounded-none text-center flex flex-col items-center justify-center gap-3 hover:border-white/30 transition-colors">
-                <Image src="https://supabase.com/brand-assets/supabase-logo-icon.svg" alt="Supabase Logo" width={32} height={32} className="h-8 w-auto opacity-90" unoptimized />
+                <Image src="/logos/supabase.svg" alt="Supabase Logo" width={32} height={32} className="h-8 w-auto opacity-95" />
                 <div>
                   <p className="font-mono text-white text-sm uppercase mb-1">Supabase</p>
                   <p className="font-mono text-zinc-500 text-[10px] uppercase">Realtime & DB</p>
                 </div>
               </div>
               <div className="p-6 border border-white/10 bg-black/20 rounded-none text-center flex flex-col items-center justify-center gap-3 hover:border-white/30 transition-colors">
-                <Image src="https://assets.vercel.com/image/upload/v1588805858/repositories/vercel/logo.png" alt="Vercel Logo" width={32} height={32} className="h-8 w-auto invert opacity-90" unoptimized />
+                <Image src="/logos/vercel.svg" alt="Vercel Logo" width={32} height={32} className="h-8 w-auto opacity-95" />
                 <div>
                   <p className="font-mono text-white text-sm uppercase mb-1">Vercel</p>
                   <p className="font-mono text-zinc-500 text-[10px] uppercase">API & Cron Jobs</p>

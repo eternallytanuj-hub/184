@@ -268,12 +268,13 @@ export default function CollabHeader({
             className="flex items-center gap-2.5 group"
             title="Return to CyberCast Portal"
           >
-            <div className="relative h-7 w-7 flex-shrink-0 bg-white p-0.5 border border-white/20">
+            <div className="relative h-7 w-7 flex-shrink-0 flex items-center justify-center bg-black p-0.5 border border-white/20">
               <Image
-                src="/logos/CyberCast.png"
+                src="/logos/cybercast.png"
                 alt="CyberCast Logo"
-                fill
-                className="object-contain"
+                width={26}
+                height={26}
+                className="h-full w-full object-contain p-0.5"
                 priority
               />
             </div>
