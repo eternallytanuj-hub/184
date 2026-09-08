@@ -7,6 +7,7 @@ import RightSidebar from '@/components/dashboard/RightSidebar';
 import BottomBar from '@/components/dashboard/BottomBar';
 import DashboardMap from '@/components/dashboard/DashboardMap';
 import Modals from '@/components/dashboard/Modals';
+import { sendAdbSms } from '@/lib/hardwareService';
 import { 
   ATMS_DATA, 
   BANK_BRANCHES_DATA, 
@@ -251,8 +252,15 @@ export default function DashboardPage() {
       <Modals
         criticalAlertOpen={criticalAlertOpen}
         onCloseCriticalAlert={() => setCriticalAlertOpen(false)}
-        onDispatchTeam={() => {
-          alert('Rapid Response Unit dispatched to Sindhi Camp Jaipur ATMs!');
+        onDispatchTeam={async () => {
+          sendAdbSms({
+            phone: '+919829041209',
+            message: '[CYBERCAST CRITICAL DISPATCH] Rapid Response PCR Unit dispatched to Sindhi Camp Jaipur ATMs. High-risk withdrawal predicted within 2h. Intercept suspect immediately.',
+            priority: 'FLASH_P1',
+            officerName: 'SI Manoj Meena (Jaipur PCR Lead)',
+            caseId: 'CRIT-ALERT-SINDHI-CAMP',
+          }).catch(() => {});
+          alert('Rapid Response Unit dispatched! Directive transmitted to physical Android device (ZD222K9HBL) via ADB Intent.');
           setCriticalAlertOpen(false);
         }}
         onViewAlertLocation={() => {

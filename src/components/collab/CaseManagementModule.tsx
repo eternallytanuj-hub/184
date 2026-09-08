@@ -7,8 +7,9 @@ import {
   FileText, MessageSquare, Download, Share2, CornerDownRight,
   TrendingDown, Check, X, Building, Smartphone, MapPin, 
   ChevronRight, RefreshCw, Send, Sparkles, ExternalLink,
-  Printer, ShieldCheck, Database, FileCheck
+  Printer, ShieldCheck, Database, FileCheck, Radio
 } from 'lucide-react';
+import { sendAdbSms } from '@/lib/hardwareService';
 import { 
   CaseEntity, CASES_DATA, CaseStatus, PriorityLevel, 
   OfficerRole, OFFICER_ROLES, OfficerProfile, MoneyTrailNode, EVIDENCE_DATA,
@@ -127,6 +128,10 @@ export default function CaseManagementModule({
     setSelectedCaseIds([]);
   };
 
+  // SMS Alert State
+  const [isSendingCaseSms, setIsSendingCaseSms] = useState(false);
+  const [caseSmsSent, setCaseSmsSent] = useState(false);
+
   // Handle Account Freeze in Money Trail
   const handleRequestFreeze = (nodeId: string, accountMasked: string) => {
     setFrozenNodeIds(prev => [...prev, nodeId]);
@@ -139,7 +144,7 @@ export default function CaseManagementModule({
         officerName: OFFICER_ROLES[currentRole].name,
         role: OFFICER_ROLES[currentRole].roleName,
         action: `CFCFRMS Statutory Debit Freeze executed on ${accountMasked}`,
-        outcome: 'Account successfully lien-marked via nodal bank API hook',
+        outcome: 'Account successfully lien-marked via nodal bank API hook and SMS directive dispatched',
       };
       const updatedCase: CaseEntity = {
         ...activeCase,
@@ -148,6 +153,52 @@ export default function CaseManagementModule({
       };
       setActiveCase(updatedCase);
       setCases(prev => prev.map(c => c.id === updatedCase.id ? updatedCase : c));
+
+      // Dispatch ADB SMS to bank liaison officer
+      sendAdbSms({
+        phone: '+919980177312',
+        message: `[CYBERCAST CFCFRMS FREEZE] Statutory Lien Debit Freeze on ${accountMasked} for Case ${activeCase.id}. Freeze debit immediately under Sec 91 CrPC. Authorized: ${OFFICER_ROLES[currentRole].name}.`,
+        priority: 'FLASH_P1',
+        officerName: 'Priya Nambiar (Nodal Officer)',
+        caseId: activeCase.id,
+      }).catch(() => {});
+    }
+  };
+
+  // Direct Send Case Alert SMS to Field Unit
+  const handleSendCaseAlertSms = async () => {
+    if (!activeCase) return;
+    setIsSendingCaseSms(true);
+    const message = `[CYBERCAST FLASH DIRECTIVE] Urgent intervention for Case ${activeCase.id}. Predicted withdrawal zone: ${activeCase.predictedZone} (${activeCase.predictedTimeWindow}). Assigned: ${activeCase.assignedOfficerName}. Verify perimeter immediately.`;
+    
+    await sendAdbSms({
+      phone: '+919829041209',
+      message,
+      priority: activeCase.priority === 'Critical' ? 'FLASH_P1' : 'URGENT_P2',
+      officerName: activeCase.assignedOfficerName,
+      caseId: activeCase.id,
+    });
+
+    setIsSendingCaseSms(false);
+    setCaseSmsSent(true);
+
+    const newActionLogEntry = {
+      timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' IST',
+      officerName: OFFICER_ROLES[currentRole].name,
+      role: OFFICER_ROLES[currentRole].roleName,
+      action: `Tactical Alert SMS dispatched to assigned field officer (${activeCase.assignedOfficerName}) via ADB Hardware Bridge`,
+      outcome: 'Device intent triggered; field unit notified',
+    };
+
+    const updatedCase = {
+      ...activeCase,
+      actionLog: [newActionLogEntry, ...activeCase.actionLog],
+    };
+    setActiveCase(updatedCase);
+    setCases(prev => prev.map(c => c.id === updatedCase.id ? updatedCase : c));
+
+    if (onAuditLog) {
+      onAuditLog(`DISPATCHED_CASE_ALERT_SMS_${activeCase.id}`, activeCase.id, 'CASE');
     }
   };
 
@@ -637,6 +688,15 @@ export default function CaseManagementModule({
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSendCaseAlertSms}
+                  disabled={isSendingCaseSms}
+                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/60 text-amber-300 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors"
+                  title="Dispatch immediate tactical SMS directive to assigned officer via ADB hardware"
+                >
+                  <Radio className={`h-3.5 w-3.5 ${isSendingCaseSms ? 'animate-spin' : 'animate-pulse text-amber-400'}`} />
+                  <span>{isSendingCaseSms ? 'SENDING SMS...' : caseSmsSent ? 'SMS DISPATCHED ✓' : 'SEND ALERT SMS'}</span>
+                </button>
                 <button
                   onClick={() => setStatusModalOpen(true)}
                   className="px-2.5 py-1 bg-neon text-black hover:bg-neon/90 font-bold text-xs uppercase"

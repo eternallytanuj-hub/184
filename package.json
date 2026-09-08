@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "test": "node --test tests/verify_landing.test.mjs",
+    "test": "node --test tests/verify_landing.test.mjs tests/adb_hardware_sms.test.mjs",
     "create-demo-users": "npx tsx scripts/createDemoUsers.ts"
   },
   "dependencies": {

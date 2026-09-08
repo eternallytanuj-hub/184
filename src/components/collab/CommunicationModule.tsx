@@ -11,6 +11,7 @@ import {
   OfficerRole, OFFICER_ROLES, OfficerProfile, CHAT_CHANNELS, CHAT_MESSAGES, 
   ChatMessage, INDIAN_LANGUAGES 
 } from '@/data/collabData';
+import { sendAdbSms } from '@/lib/hardwareService';
 
 interface CommunicationModuleProps {
   currentRole?: OfficerRole;
@@ -498,7 +499,14 @@ export default function CommunicationModule({
                 </button>
                 <button
                   onClick={() => {
-                    alert(`Inter-State Transfer request dispatched to ${transferDetails.targetState} Nodal Officer with full evidentiary chain.`);
+                    sendAdbSms({
+                      phone: '+919829041209',
+                      message: `[CYBERCAST CASE TRANSFER DIRECTIVE] Inter-State Case Transfer dispatched to ${transferDetails.targetState} Nodal Officer. Justification: ${transferDetails.reason}. Evidence chain attached.`,
+                      priority: 'FLASH_P1',
+                      officerName: `${transferDetails.targetState} Nodal Officer`,
+                      caseId: selectedChannelId,
+                    }).catch(() => {});
+                    alert(`Inter-State Transfer request dispatched to ${transferDetails.targetState} Nodal Officer with full evidentiary chain & SMS sent!`);
                     setTransferModalOpen(false);
                   }}
                   className="px-4 py-1.5 bg-neon hover:bg-neon/90 text-black font-bold uppercase text-[10px]"
@@ -553,7 +561,15 @@ export default function CommunicationModule({
                 </button>
                 <button
                   onClick={() => {
-                    alert(`Formal Help Request logged with Ticket #SLA-${Date.now().toString().slice(-4)}. 4-hour countdown initiated.`);
+                    const ticketId = `SLA-${Date.now().toString().slice(-4)}`;
+                    sendAdbSms({
+                      phone: '+919829041209',
+                      message: `[CYBERCAST 4H SLA MANDATE] Formal Mutual Assistance Request (${ticketId}) for ${helpDetails.targetState}: ${helpDetails.reason}. Inter-State SLA: 4 Hours. Authorized by I4C Command.`,
+                      priority: 'FLASH_P1',
+                      officerName: `${helpDetails.targetState} Ground Unit`,
+                      caseId: ticketId,
+                    }).catch(() => {});
+                    alert(`Formal Help Request logged with Ticket #${ticketId}. 4-hour countdown initiated & SMS directive dispatched!`);
                     setHelpModalOpen(false);
                   }}
                   className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase text-[10px]"

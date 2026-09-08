@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { OfficerRole, OFFICER_ROLES, OfficerProfile } from '@/data/collabData';
 import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
+import { checkAdbDeviceStatus, AdbDeviceStatus } from '@/lib/hardwareService';
 import { supabase } from '@/lib/auth/supabaseClient';
 
 interface OfficerSession {
@@ -55,11 +56,27 @@ export default function CollabHeader({
     }
   }, []);
 
+  // Poll USB ADB Hardware status every 12s
+  const [hardwareStatus, setHardwareStatus] = useState<AdbDeviceStatus | null>(null);
+  const refreshHardware = React.useCallback(async () => {
+    try {
+      const st = await checkAdbDeviceStatus();
+      setHardwareStatus(st);
+    } catch (e) {
+      console.warn('Collab header hardware poll failed:', e);
+    }
+  }, []);
+
   useEffect(() => {
     refreshHealth();
-    const timer = setInterval(refreshHealth, 60000);
-    return () => clearInterval(timer);
-  }, [refreshHealth]);
+    refreshHardware();
+    const timerHealth = setInterval(refreshHealth, 60000);
+    const timerHw = setInterval(refreshHardware, 12000);
+    return () => {
+      clearInterval(timerHealth);
+      clearInterval(timerHw);
+    };
+  }, [refreshHealth, refreshHardware]);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState([
     {
@@ -380,6 +397,33 @@ export default function CollabHeader({
                 LEDGER: <span className="text-neon">SYNCED</span>
               </span>
             </Link>
+
+            {/* USB ADB Hardware Bridge Status Indicator */}
+            <div
+              onClick={refreshHardware}
+              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/15 text-[10px] uppercase font-bold flex items-center gap-1.5 cursor-pointer select-none"
+              title={
+                hardwareStatus?.connected
+                  ? `ADB Hardware Bridge: ${hardwareStatus.deviceId} (${hardwareStatus.model || 'Android'}). Method A Live Intent Active.`
+                  : hardwareStatus?.unauthorized
+                  ? `USB Device Unauthorized: ${hardwareStatus.deviceId || 'Android'}. Unlock phone and tap "Allow USB debugging".`
+                  : 'ADB Hardware Bridge: Offline / Fallback Simulation Mode'
+              }
+            >
+              <span className={`h-1.5 w-1.5 ${
+                hardwareStatus?.connected ? 'bg-[#ceff00] animate-pulse' :
+                hardwareStatus?.unauthorized ? 'bg-amber-400 animate-pulse' : 'bg-amber-500'
+              }`} />
+              <span className={hardwareStatus?.connected ? 'text-zinc-200' : 'text-zinc-400'}>
+                {hardwareStatus?.connected ? (
+                  <>USB HW: <span className="text-[#ceff00]">{hardwareStatus.deviceId}</span></>
+                ) : hardwareStatus?.unauthorized ? (
+                  <span className="text-amber-400">USB HW: UNAUTHORIZED</span>
+                ) : (
+                  <span className="text-zinc-400">USB HW: <span className="text-amber-400">SIM</span></span>
+                )}
+              </span>
+            </div>
           </div>
         </div>
 

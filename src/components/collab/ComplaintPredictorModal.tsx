@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { 
   X, Sparkles, Send, AlertTriangle, Shield, CheckCircle2, 
   Clock, MapPin, Building, ArrowRight, BarChart3, Info, 
-  TrendingUp, RefreshCw, Layers, ExternalLink, Zap, Lock, ShieldCheck
+  TrendingUp, RefreshCw, Layers, ExternalLink, Zap, Lock, ShieldCheck,
+  Radio, Smartphone
 } from 'lucide-react';
+import { sendAdbSms } from '@/lib/hardwareService';
 import { 
   predictWithdrawal, 
   getSHAPExplanation, 
@@ -105,6 +107,9 @@ export default function ComplaintPredictorModal({
   const [activeTab, setActiveTab] = useState<'prediction' | 'shap'>('prediction');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [alertSuccess, setAlertSuccess] = useState(false);
+  const [isSendingSms, setIsSendingSms] = useState(false);
+  const [smsSuccess, setSmsSuccess] = useState(false);
+  const [smsFeedback, setSmsFeedback] = useState<string | null>(null);
 
   // Blockchain Ledger Anchoring State (Section 63 BSA 2023)
   const [isBlockchainAnchoringEnabled, setIsBlockchainAnchoringEnabled] = useState(true);
@@ -345,7 +350,7 @@ export default function ComplaintPredictorModal({
     }
   };
 
-  const handleBroadcastAlert = () => {
+  const handleBroadcastAlert = async () => {
     if (!prediction) return;
     const topState = prediction.top_predicted_states[0]?.state || 'Suspect Zone';
     const alertMsg = `CRITICAL INTERDICTION: Case ${prediction.complaint_id} — Cashout expected in ${prediction.estimated_time_window_hours}h in ${topState} (${prediction.zone_prediction.predicted_zone}). Action: ${prediction.recommended_actions[0] || 'Deploy patrol units'}`;
@@ -353,6 +358,42 @@ export default function ComplaintPredictorModal({
       onBroadcastAlert(alertMsg);
     }
     setAlertSuccess(true);
+    // Method A: Trigger ADB SMS directive to physical hardware terminal
+    try {
+      await sendAdbSms({
+        phone: '+919829041209',
+        message: `[CYBERCAST BROADCAST ALERT] ${alertMsg}`,
+        priority: 'FLASH_P1',
+        officerName: currentOfficer?.name || 'Assigned Officer',
+        caseId: prediction.complaint_id,
+      });
+    } catch {
+      // Non-fatal fallback
+    }
+  };
+
+  const handleSendSmsAlert = async () => {
+    if (!prediction) return;
+    setIsSendingSms(true);
+    setSmsFeedback(null);
+    const topState = prediction.top_predicted_states[0]?.state || formData.victim_state;
+    const alertMsg = `[CYBERCAST FLASH DIRECTIVE] Urgent interdiction for Case ${prediction.complaint_id}. Predicted withdrawal: ${topState} (${prediction.zone_prediction.predicted_zone}) in ${prediction.estimated_time_window_hours}h. Action: ${prediction.recommended_actions[0] || 'Deploy patrol units'}. Authorized: ${currentOfficer?.name || 'I4C Command'}.`;
+
+    const res = await sendAdbSms({
+      phone: '+919829041209',
+      message: alertMsg,
+      priority: 'FLASH_P1',
+      officerName: currentOfficer?.name || 'Assigned Officer',
+      caseId: prediction.complaint_id,
+    });
+
+    setIsSendingSms(false);
+    setSmsSuccess(true);
+    if (res.mode === 'hardware') {
+      setSmsFeedback(`✓ Intent launched on ${res.deviceId || 'ZD222K9HBL'} (${res.model || 'Android'}) • Ref #${res.dltReference}`);
+    } else {
+      setSmsFeedback(`✓ SMS simulated via DLT Trunk • Ref #${res.dltReference}`);
+    }
   };
 
   return (
@@ -895,7 +936,25 @@ export default function ComplaintPredictorModal({
                       <AlertTriangle className="h-3.5 w-3.5" />
                       <span>{alertSuccess ? 'BROADCAST SENT ✓' : 'BROADCAST ALERT'}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendSmsAlert}
+                      disabled={isSendingSms}
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-bold text-xs uppercase flex items-center gap-1.5 transition-colors"
+                      title="Transmit immediate police SMS alert to field units via ADB hardware bridge"
+                    >
+                      <Radio className={`h-3.5 w-3.5 ${isSendingSms ? 'animate-spin' : 'animate-pulse'}`} />
+                      <span>{isSendingSms ? 'TRANSMITTING SMS...' : smsSuccess ? 'POLICE SMS SENT ✓' : 'DISPATCH POLICE SMS'}</span>
+                    </button>
                   </div>
+
+                  {smsFeedback && (
+                    <div className="w-full text-[10px] text-amber-300 font-mono flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 p-1.5">
+                      <Smartphone className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span>{smsFeedback}</span>
+                    </div>
+                  )}
 
                   <button
                     type="button"

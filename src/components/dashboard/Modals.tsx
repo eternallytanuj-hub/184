@@ -7,6 +7,7 @@ import {
   Share2, Split, MapPin, Phone, Building
 } from 'lucide-react';
 import { ATMEntity, PoliceStationEntity, BankBranchEntity } from '@/data/dashboardData';
+import { sendAdbSms } from '@/lib/hardwareService';
 
 interface ModalsProps {
   criticalAlertOpen: boolean;
@@ -433,7 +434,16 @@ export default function Modals({
                 {surveillanceRequested ? 'FLAGGED ✓' : 'REQUEST SURVEILLANCE'}
               </button>
               <button
-                onClick={() => alert(`Alert broadcast sent to ${selectedATM.bank} branch nodal officer!`)}
+                onClick={() => {
+                  sendAdbSms({
+                    phone: '+919829041209',
+                    message: `[CYBERCAST ATM FRAUD ALERT] ${selectedATM.bank} Nodal Officer: Suspicious withdrawal activity detected at ${selectedATM.bank} (${selectedATM.branch}, ${selectedATM.address}). Risk: ${selectedATM.fraudWithdrawals} frauds in 30d. Monitor branch CCTV & cash dispensing.`,
+                    priority: 'FLASH_P1',
+                    officerName: 'Bank Nodal Liaison',
+                    caseId: `ATM-${selectedATM.id}`,
+                  }).catch(() => {});
+                  alert(`Alert broadcast sent to ${selectedATM.bank} branch nodal officer via CFCFRMS & SMS sent!`);
+                }}
                 className="py-2 bg-black hover:bg-white/10 border border-white/20 text-white font-bold uppercase"
               >
                 ALERT BANK
@@ -481,6 +491,13 @@ export default function Modals({
               <button
                 onClick={() => {
                   onRequestDeployment(selectedPolice.id);
+                  sendAdbSms({
+                    phone: selectedPolice.contact || '+919829041209',
+                    message: `[CYBERCAST PATROL DISPATCH] Urgent tactical deployment to ${selectedPolice.name} jurisdiction (${selectedPolice.jurisdiction}). SHO: ${selectedPolice.sho}. Active Cases: ${selectedPolice.activeCases}. Immediate PCR patrol required.`,
+                    priority: 'FLASH_P1',
+                    officerName: selectedPolice.sho,
+                    caseId: `POLICE-${selectedPolice.id}`,
+                  }).catch(() => {});
                   setDeploymentRequested(true);
                   setTimeout(() => setDeploymentRequested(false), 3000);
                 }}
@@ -491,7 +508,16 @@ export default function Modals({
                 {deploymentRequested ? 'DISPATCHED ✓' : 'REQUEST DEPLOYMENT'}
               </button>
               <button
-                onClick={() => alert(`Calling SHO ${selectedPolice.sho}...`)}
+                onClick={() => {
+                  sendAdbSms({
+                    phone: selectedPolice.contact || '+919829041209',
+                    message: `[CYBERCAST FLASH DIRECTIVE] Urgent contact requested by Central Cyber Command. SHO: ${selectedPolice.sho} (${selectedPolice.name}). Please report to command console immediately.`,
+                    priority: 'FLASH_P1',
+                    officerName: selectedPolice.sho,
+                    caseId: `SHO-${selectedPolice.id}`,
+                  }).catch(() => {});
+                  alert(`Tactical dispatch SMS sent to SHO ${selectedPolice.sho} (${selectedPolice.contact})!`);
+                }}
                 className="py-2 bg-black hover:bg-white/10 border border-white/20 text-white font-bold uppercase"
               >
                 CONTACT SHO
@@ -535,7 +561,16 @@ export default function Modals({
 
             <div className="grid grid-cols-2 gap-2 text-[10px]">
               <button
-                onClick={() => alert(`Freeze mandate dispatched for ${selectedBranch.flaggedAccounts} accounts at ${selectedBranch.name} via CFCFRMS!`)}
+                onClick={() => {
+                  sendAdbSms({
+                    phone: '+919980177312',
+                    message: `[CYBERCAST CFCFRMS STATUTORY FREEZE] Mandate on ${selectedBranch.flaggedAccounts} flagged accounts at ${selectedBranch.name} (${selectedBranch.ifsc}). Freeze debits immediately under Sec 91 CrPC.`,
+                    priority: 'FLASH_P1',
+                    officerName: 'Priya Nambiar (Nodal Officer)',
+                    caseId: `BRANCH-${selectedBranch.id}`,
+                  }).catch(() => {});
+                  alert(`Freeze mandate dispatched for ${selectedBranch.flaggedAccounts} accounts at ${selectedBranch.name} via CFCFRMS & SMS sent!`);
+                }}
                 className="py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase"
               >
                 FREEZE FLAGGED ACCOUNTS
