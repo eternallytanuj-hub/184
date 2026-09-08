@@ -695,7 +695,17 @@ export interface EvidenceItem {
     officerName: string;
     action: string;
     purpose: string;
+    blockNumber?: number;
+    txHash?: string;
+    digitalSignature?: string;
   }[];
+  // Blockchain & BSA 2023 Forensic Fields
+  blockchainTxHash?: string;
+  polygonBlockNumber?: number;
+  ipfsCid?: string;
+  anchoredAt?: string;
+  bsa63CertificateId?: string;
+  ledgerStatus: 'ANCHORED' | 'PENDING' | 'LOCAL';
 }
 
 export const EVIDENCE_DATA: EvidenceItem[] = [
@@ -719,24 +729,39 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     detectedLanguage: 'Hindi / English (Hinglish)',
     ocrExtractedText: 'प्रिय उपभोक्ता, आपका बिजली कनेक्शन आज रात 9:30 बजे काट दिया जाएगा। तुरंत बिजली अधिकारी 98765-XXXXX पर संपर्क करें। QuickSupport APK डाउनलोड करें।',
     translatedText: 'Dear Consumer, your electricity connection will be disconnected tonight at 9:30 PM. Immediately contact electricity officer at 98765-XXXXX. Download QuickSupport APK.',
+    blockchainTxHash: '0x8f2c3a1e9b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
+    polygonBlockNumber: 14892014,
+    ipfsCid: 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+    anchoredAt: '2026-09-05T06:26:12.000Z',
+    bsa63CertificateId: 'BSA-63-2026-RAJ-9182',
+    ledgerStatus: 'ANCHORED',
     chainOfCustody: [
       {
         timestamp: '11:55 IST',
         officerName: 'Insp. Rajesh Kumar',
         action: 'Evidence Ingested & Hash Calculated',
         purpose: 'Case file creation and forensic preservation',
+        blockNumber: 14892014,
+        txHash: '0x8f2c3a1e9b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
+        digitalSignature: '0x3c7e1892fa...8b21e0 (Secured by MHA HSM)',
       },
       {
         timestamp: '12:05 IST',
         officerName: 'SI Manoj Meena',
         action: 'Viewed on Field Device',
         purpose: 'Phone number verification before patrol deployment',
+        blockNumber: 14892025,
+        txHash: '0x12a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3',
+        digitalSignature: '0x7a8b9c0d1e...4f5a6b',
       },
       {
         timestamp: '12:30 IST',
         officerName: 'Dr. A. K. Saxena',
         action: 'Evidence Audit Verification',
         purpose: 'National syndicate correlation query',
+        blockNumber: 14892050,
+        txHash: '0x5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d',
+        digitalSignature: '0x9e0f1a2b3c...6d7e8f',
       },
     ],
   },
@@ -758,12 +783,21 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     source: 'CCTV',
     confidentiality: 'Top Secret',
     ocrExtractedText: 'ATM CCTV CAM 02 - 05/09/2026 12:34:11 IST - SBI SINDHI CAMP BR - SUSPECT MALE BLACK HOODIE BLUE JEANS',
+    blockchainTxHash: '0x7e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d',
+    polygonBlockNumber: 14892188,
+    ipfsCid: 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG',
+    anchoredAt: '2026-09-05T07:11:45.000Z',
+    bsa63CertificateId: 'BSA-63-2026-RAJ-9183',
+    ledgerStatus: 'ANCHORED',
     chainOfCustody: [
       {
         timestamp: '12:40 IST',
         officerName: 'SI Manoj Meena',
-        action: 'Uploaded from Field Terminal',
+        action: 'Uploaded from Field Terminal & Anchored to Ledger',
         purpose: 'Real-time suspect identification broadcast',
+        blockNumber: 14892188,
+        txHash: '0x7e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d',
+        digitalSignature: '0x9a8f7e6d5c...1e0d9c',
       },
     ],
   },
@@ -785,12 +819,21 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     source: 'Bank',
     confidentiality: 'Restricted',
     ocrExtractedText: 'CFCFRMS CONFIRMATION - UTR: HDFCR5202609050019284 - BENEFICIARY: RAMESH KUMAR SBI RJ - STATUS: ACCOUNT UNDER 24H LIEN',
+    blockchainTxHash: '0x4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
+    polygonBlockNumber: 14892245,
+    ipfsCid: 'QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco',
+    anchoredAt: '2026-09-05T06:46:20.000Z',
+    bsa63CertificateId: 'BSA-63-2026-MH-4421',
+    ledgerStatus: 'ANCHORED',
     chainOfCustody: [
       {
         timestamp: '12:15 IST',
         officerName: 'Priya Nambiar',
-        action: 'Uploaded Statutory Freeze Notice',
-        purpose: 'Section 91 CrPC compliance documentation',
+        action: 'Uploaded Statutory Freeze Notice & Mined On-Chain',
+        purpose: 'Section 91 CrPC / Section 63 BSA compliance documentation',
+        blockNumber: 14892245,
+        txHash: '0x4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c',
+        digitalSignature: '0x2c3d4e5f6a...e1f2a3',
       },
     ],
   },
@@ -811,12 +854,21 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     relevance: 'Primary',
     source: 'Police',
     confidentiality: 'Restricted',
+    blockchainTxHash: '0x3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b',
+    polygonBlockNumber: 14892090,
+    ipfsCid: 'QmPZ9gcCEpqKTo6aq61g2nXGUhM49wbdukVaTe7n2ZSQxK',
+    anchoredAt: '2026-09-05T06:31:00.000Z',
+    bsa63CertificateId: 'BSA-63-2026-RAJ-9180',
+    ledgerStatus: 'ANCHORED',
     chainOfCustody: [
       {
         timestamp: '12:00 IST',
         officerName: 'Insp. Rajesh Kumar',
-        action: 'FIR Document Scanned & Registered',
-        purpose: 'Statutory Case File Evidence',
+        action: 'FIR Document Scanned, Registered & Anchored',
+        purpose: 'Statutory Case File Evidence under BSA Section 63',
+        blockNumber: 14892090,
+        txHash: '0x3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b',
+        digitalSignature: '0x5a6b7c8d9e...3c4d5e',
       },
     ],
   },

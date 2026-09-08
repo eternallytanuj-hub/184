@@ -103,9 +103,9 @@ export default function CollabPage() {
     {
       id: 'evidence',
       label: 'Digital Evidence Locker',
-      sublabel: 'SHA-256 Tamper Evident',
+      sublabel: 'Polygon Amoy & BSA Sec 63',
       icon: <ShieldCheck className="w-4 h-4" />,
-      badge: 'Sec 65B',
+      badge: 'BSA Sec 63',
     },
     {
       id: 'tasks',

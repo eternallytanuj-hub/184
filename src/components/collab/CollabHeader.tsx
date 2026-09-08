@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Shield, Bell, Lock, User, Clock, AlertTriangle, 
   Fingerprint, ChevronDown, CheckCircle2, ArrowLeft,
-  Radio, LogOut, FileText, Map, RefreshCw
+  Radio, LogOut, FileText, Map, RefreshCw, ShieldCheck
 } from 'lucide-react';
 import { OfficerRole, OFFICER_ROLES, OfficerProfile } from '@/data/collabData';
 import { getModelHealth, ModelHealthStatus } from '@/lib/apiService';
@@ -334,6 +334,15 @@ export default function CollabHeader({
               <span>[ RADAR MAP ]</span>
             </Link>
 
+            <Link
+              href="/verify"
+              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/10 text-zinc-300 text-[10px] uppercase tracking-wider flex items-center gap-1.5"
+              title="Public Judicial Verification Portal"
+            >
+              <ShieldCheck className="h-3 w-3 text-neon" />
+              <span>[ VERIFY ]</span>
+            </Link>
+
             <div className="px-2 py-1 bg-neon/10 border border-neon text-neon text-[10px] uppercase font-bold flex items-center gap-1.5">
               <Radio className="h-3 w-3 animate-pulse" />
               <span>COLLAB ACTIVE</span>
@@ -359,6 +368,18 @@ export default function CollabHeader({
                 )}
               </span>
             </div>
+
+            {/* Polygon Ledger Synced Pulse Indicator */}
+            <Link
+              href="/verify"
+              className="px-2 py-1 bg-black hover:bg-white/10 border border-neon/30 text-[10px] uppercase font-bold flex items-center gap-1.5"
+              title="Polygon Amoy Ledger: Synced (Block Finality 2.1s)"
+            >
+              <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
+              <span className="text-zinc-200">
+                LEDGER: <span className="text-neon">SYNCED</span>
+              </span>
+            </Link>
           </div>
         </div>
 
