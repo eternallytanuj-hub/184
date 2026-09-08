@@ -471,20 +471,28 @@ test('6. Production Runtime HTTP Response on /benchmarks', async (t) => {
       'Rendered page must cite dataset provenance'
     );
 
-    // 6. Verify District Prediction & Spatial Hotspot Corridor in HTML DOM
+    // 6. Verify Extraction Facility & Zone Prediction in HTML DOM (Authentic Railway ML Outputs)
     assert.ok(
-      html.includes('PREDICTED CASH-OUT DISTRICT &amp; SPATIAL HOTSPOT CORRIDOR') ||
-      html.includes('PREDICTED CASH-OUT DISTRICT & SPATIAL HOTSPOT CORRIDOR') ||
-      html.includes('PREDICTED CASH-OUT DISTRICT'),
-      'Rendered page must contain Section 03 Predicted Cash-Out District'
+      html.includes('PHYSICAL EXTRACTION FACILITY &amp; CASH-OUT ZONE') ||
+      html.includes('PHYSICAL EXTRACTION FACILITY & CASH-OUT ZONE') ||
+      html.includes('EXTRACTION FACILITY'),
+      'Rendered page must contain Section 03 Physical Extraction Facility & Cash-Out Zone'
     );
     assert.ok(
       html.includes('964 DISTRICTS INDEXED'),
       'Rendered page must contain 964 Districts Indexed tag'
     );
     assert.ok(
-      html.includes('DISTRICT_MODEL'),
-      'Rendered page must cite DISTRICT_MODEL spatial localization engine'
+      html.includes('zone_prediction'),
+      'Rendered page must cite zone_prediction hierarchical classifier'
+    );
+    assert.ok(
+      !html.includes('EXACT DISTRICT MATCH'),
+      'Rendered page must NOT contain fake EXACT DISTRICT MATCH badge'
+    );
+    assert.ok(
+      !html.includes('PREDICTED CASH-OUT DISTRICT'),
+      'Rendered page must NOT contain fake PREDICTED CASH-OUT DISTRICT claim'
     );
   } finally {
     server.kill();
