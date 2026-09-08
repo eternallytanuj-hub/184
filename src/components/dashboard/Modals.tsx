@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   X, AlertTriangle, Shield, Check, Copy, Download, 
   Share2, Split, MapPin, Phone, Building, ExternalLink,
@@ -163,7 +164,7 @@ export default function Modals({
               <div>
                 <div className="text-red-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                   <span className="h-2 w-2 bg-red-600 rounded-none animate-ping" />
-                  🚨 CRITICAL ALERT DETECTED 🚨
+                  CRITICAL ALERT DETECTED
                 </div>
                 <h3 className="text-white text-base font-bold mt-0.5">
                   High-Confidence Cash Withdrawal Predicted
@@ -629,8 +630,14 @@ export default function Modals({
             {/* Modal Header */}
             <div className="p-4 bg-gradient-to-r from-emerald-950/60 via-[#111] to-[#0c0c0c] border-b border-white/15 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 bg-emerald-500/20 border border-emerald-500 flex items-center justify-center text-emerald-400">
-                  <Award className="h-5 w-5" />
+                <div className="h-9 w-9 bg-black border border-emerald-500/60 flex items-center justify-center p-1">
+                  <Image
+                    src="/logos/cybercast.png"
+                    alt="CyberCast"
+                    width={28}
+                    height={28}
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -689,7 +696,14 @@ export default function Modals({
                     : 'border-transparent text-zinc-400 hover:text-white'
                 }`}
               >
-                <span>🏛️ Ground Truth & Evidence</span>
+                <Image
+                  src="/logos/emblem_india.svg"
+                  alt="Court Emblem"
+                  width={14}
+                  height={14}
+                  className="h-3.5 w-auto filter invert brightness-200"
+                />
+                <span>Ground Truth & Evidence</span>
               </button>
               <button
                 onClick={() => setActiveInspectorTab('prediction')}
@@ -699,7 +713,14 @@ export default function Modals({
                     : 'border-transparent text-zinc-400 hover:text-white'
                 }`}
               >
-                <span>🤖 Model Predictions & Verdict</span>
+                <Image
+                  src="/logos/cybercast.png"
+                  alt="CyberCast Model"
+                  width={14}
+                  height={14}
+                  className="h-3.5 w-auto object-contain"
+                />
+                <span>Model Predictions & Verdict</span>
               </button>
               <button
                 onClick={() => setActiveInspectorTab('code')}
@@ -709,8 +730,8 @@ export default function Modals({
                     : 'border-transparent text-zinc-400 hover:text-white'
                 }`}
               >
-                <Code2 className="h-3.5 w-3.5" />
-                <span>💻 Code Block for Judges</span>
+                <Code2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Code Block for Judges</span>
               </button>
             </div>
 
@@ -758,8 +779,15 @@ export default function Modals({
                     
                     {/* Left: Modus Operandi & Complaint Details */}
                     <div className="p-4 bg-[#141414] border border-white/15 space-y-3">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5 border-b border-white/10 pb-2">
-                        <span>🚨 CITIZEN COMPLAINT & NETWORK PATTERN</span>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-red-400 flex items-center gap-2 border-b border-white/10 pb-2">
+                        <Image
+                          src="/logos/ncrb.png"
+                          alt="NCRP / NCRB"
+                          width={14}
+                          height={14}
+                          className="h-3.5 w-auto object-contain"
+                        />
+                        <span>CITIZEN COMPLAINT & NETWORK PATTERN</span>
                       </div>
 
                       <div className="space-y-2 text-[11px]">
@@ -784,8 +812,17 @@ export default function Modals({
 
                     {/* Right: Actual Cash-Out Ground Truth */}
                     <div className="p-4 bg-[#141414] border border-emerald-500/40 space-y-3">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5 border-b border-white/10 pb-2 justify-between">
-                        <span>🎯 PHYSICAL CASH-OUT GROUND TRUTH</span>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-b border-white/10 pb-2 justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Image
+                            src="/logos/rbi.svg"
+                            alt="RBI / Banking"
+                            width={14}
+                            height={14}
+                            className="h-3.5 w-auto"
+                          />
+                          <span>PHYSICAL CASH-OUT GROUND TRUTH</span>
+                        </div>
                         <span className="bg-emerald-500/20 text-emerald-300 text-[8px] px-1.5 py-0.5 border border-emerald-500/40">CCTV VERIFIED</span>
                       </div>
 
@@ -847,33 +884,35 @@ export default function Modals({
                     </div>
                   </div>
 
-                  {/* Predictions Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {/* Predictions Grid: Clean 2-Column Layout (Predicted Cash-Out Zone excised per requirements) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     
-                    <div className="p-3 bg-black border border-white/15">
-                      <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">PREDICTED STATE (TOP-1):</span>
-                      <div className="text-white font-bold text-sm mt-1">{currentCase.predictedStateTop1}</div>
-                      <div className="text-emerald-400 text-[10px] mt-1">Ground Truth: {currentCase.groundTruthState} ✅</div>
-                    </div>
-
-                    <div className="p-3 bg-black border border-white/15">
-                      <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">TOP-3 PROBABILITY SPREAD:</span>
-                      <div className="space-y-1 mt-1 font-mono text-[10px]">
-                        {currentCase.top3States?.map((st, i) => (
-                          <div key={i} className="flex justify-between">
-                            <span className={i === 0 ? 'text-emerald-400 font-bold' : 'text-zinc-400'}>
-                              {i + 1}. {st.state}
-                            </span>
-                            <span className="text-zinc-300">{Math.round(st.prob * 100)}%</span>
-                          </div>
-                        ))}
+                    <div className="p-4 bg-black border border-white/15 flex flex-col justify-between">
+                      <div>
+                        <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">PREDICTED WITHDRAWAL STATE (TOP-1):</span>
+                        <div className="text-white font-bold text-base mt-1.5">{currentCase.predictedStateTop1}</div>
+                      </div>
+                      <div className="mt-3 pt-2.5 border-t border-white/10 text-emerald-400 text-[11px] font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Ground Truth Match: {currentCase.groundTruthState}</span>
                       </div>
                     </div>
 
-                    <div className="p-3 bg-black border border-white/15">
-                      <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">PREDICTED CASH-OUT ZONE:</span>
-                      <div className="text-white font-bold text-xs mt-1">{currentCase.predictedZone}</div>
-                      <div className="text-zinc-400 text-[10px] mt-1">Hierarchical Classifier: Stage 1 Limit Check</div>
+                    <div className="p-4 bg-black border border-white/15">
+                      <span className="text-zinc-500 text-[9px] uppercase tracking-wider block mb-2">TOP-3 STATE PROBABILITY DISTRIBUTION:</span>
+                      <div className="space-y-2 font-mono text-[11px]">
+                        {currentCase.top3States?.map((st, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <span className={i === 0 ? 'text-emerald-400 font-bold flex items-center gap-1.5' : 'text-zinc-400'}>
+                              {i === 0 && <span className="h-1.5 w-1.5 bg-emerald-400 rounded-full inline-block" />}
+                              {i + 1}. {st.state}
+                            </span>
+                            <span className={i === 0 ? 'text-emerald-300 font-bold' : 'text-zinc-400'}>
+                              {Math.round(st.prob * 100)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                   </div>

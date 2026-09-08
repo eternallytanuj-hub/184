@@ -409,7 +409,13 @@ export default function DashboardHeader({
           className="flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-emerald-950/80 to-zinc-900 border border-emerald-500/60 hover:border-emerald-400 text-white font-mono text-[9px] sm:text-[10px] uppercase font-bold tracking-wider transition-all shadow-md shadow-emerald-950/40 hover:shadow-emerald-500/20 rounded-none cursor-pointer flex-shrink-0"
           title="Inspect Real High Court Case Provenance, Ground Truth, and ML Code Verification for Judges"
         >
-          <span className="text-emerald-400">⚖️</span>
+          <Image
+            src="/logos/emblem_india.svg"
+            alt="MHA"
+            width={14}
+            height={14}
+            className="h-3.5 w-auto filter invert brightness-200"
+          />
           <span className="hidden sm:inline text-emerald-300">COURT BENCHMARKS & CODE</span>
           <span className="inline sm:hidden text-emerald-300">CASES</span>
           <span className="px-1 py-0.2 bg-emerald-500/20 text-[8px] text-emerald-300 border border-emerald-500/40 font-mono">

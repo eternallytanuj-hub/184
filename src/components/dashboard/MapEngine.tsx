@@ -380,7 +380,7 @@ export default function MapEngine({
         const iconHtml = `
           <div style="width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center; position: relative;">
             <div style="position: absolute; inset: 0; background: rgba(239, 68, 68, 0.25); border: 2px solid #ef4444; border-radius: 4px; transform: rotate(45deg); box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);"></div>
-            <span style="position: relative; color: #fff; font-size: 9px; font-weight: 900; font-family: monospace;">⚖️</span>
+            <img src="/logos/emblem_india.svg" alt="Court" style="width: 11px; height: 11px; position: relative; filter: invert(1) brightness(2);" />
           </div>
         `;
 
@@ -401,9 +401,10 @@ export default function MapEngine({
           <div style="padding: 12px; font-family: monospace; font-size: 11px; background: #0c0c0c; color: #fff; border: 1px solid rgba(239,68,68,0.5); width: 340px; box-shadow: 0 4px 20px rgba(0,0,0,0.8);">
             
             <!-- Real Court Header -->
-            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.15); pb: 6px; margin-bottom: 8px;">
-              <span style="font-weight: 800; font-size: 11px; color: #ef4444; letter-spacing: 0.5px;">
-                🏛️ REAL CASE: ${inc.id}
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 6px; margin-bottom: 8px;">
+              <span style="font-weight: 800; font-size: 11px; color: #ef4444; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px;">
+                <img src="/logos/emblem_india.svg" alt="MHA" style="width: 12px; height: 12px; filter: invert(1) brightness(2);" />
+                REAL CASE: ${inc.id}
               </span>
               <span style="background: rgba(239,68,68,0.2); color: #f87171; font-size: 9px; padding: 2px 5px; border: 1px solid rgba(239,68,68,0.4); font-weight: bold;">
                 HIGH COURT VERIFIED
@@ -432,7 +433,10 @@ export default function MapEngine({
             <!-- Ground Truth vs Model Prediction Box -->
             <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.3); padding: 7px 8px; margin-bottom: 8px;">
               <div style="color: #34d399; font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🎯 Actual Cash-Out Ground Truth</span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                  <img src="/logos/rbi.svg" alt="RBI" style="width: 12px; height: 12px;" />
+                  Actual Cash-Out Ground Truth
+                </span>
                 <span style="background: #065f46; color: #a7f3d0; padding: 1px 4px; font-size: 8px; border-radius: 2px;">CCTV VERIFIED</span>
               </div>
               <div style="font-size: 10.5px; color: #fff; font-weight: bold;">
@@ -446,9 +450,12 @@ export default function MapEngine({
             <!-- Model Prediction Verdict -->
             <div style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.3); padding: 7px 8px;">
               <div style="color: #60a5fa; font-weight: bold; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🤖 Cybercast ML Prediction</span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                  <img src="/logos/cybercast.png" alt="Cybercast" style="width: 12px; height: 12px; object-fit: contain;" />
+                  Cybercast ML Prediction
+                </span>
                 <span style="background: #1e3a8a; color: #bfdbfe; padding: 1px 4px; font-size: 8px; border-radius: 2px;">
-                  ${inc.isTop1Match ? '✅ TOP-1 STATE HIT' : 'TOP-3 MATCH'}
+                  ${inc.isTop1Match ? 'VERIFIED TOP-1 HIT' : 'TOP-3 MATCH'}
                 </span>
               </div>
               <div style="font-size: 10px;">
@@ -467,7 +474,7 @@ export default function MapEngine({
           const gtIconHtml = `
             <div style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; position: relative;">
               <div style="position: absolute; inset: 0; background: rgba(16, 185, 129, 0.25); border: 2px solid #10b981; border-radius: 50%; box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); animation: pulse 2s infinite;"></div>
-              <span style="position: relative; color: #10b981; font-size: 11px; font-weight: bold;">🏧</span>
+              <img src="/logos/rbi.svg" alt="ATM" style="width: 13px; height: 13px; position: relative;" />
             </div>
           `;
 
@@ -483,7 +490,10 @@ export default function MapEngine({
           gtMarker.bindPopup(`
             <div style="padding: 10px; font-family: monospace; font-size: 11px; background: #0c0c0c; color: #fff; border: 1px solid rgba(16,185,129,0.5); width: 290px;">
               <div style="font-weight: bold; font-size: 11px; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🏧 ACTUAL CASH-OUT ATM</span>
+                <span style="display: flex; align-items: center; gap: 5px;">
+                  <img src="/logos/rbi.svg" alt="ATM" style="width: 12px; height: 12px;" />
+                  ACTUAL CASH-OUT ATM
+                </span>
                 <span style="background: rgba(16,185,129,0.2); color: #34d399; font-size: 8px; padding: 1px 4px;">CASE ${inc.id}</span>
               </div>
               <div style="font-size: 11px; font-weight: bold; color: #fff; margin-bottom: 4px;">
@@ -558,8 +568,9 @@ export default function MapEngine({
         polyline.bindPopup(`
           <div style="padding: 12px; font-family: monospace; font-size: 11px; background: #0c0c0c; color: #fff; border: 1px solid ${color}; width: 280px; box-shadow: 0 4px 16px rgba(0,0,0,0.8);">
             <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; margin-bottom: 6px;">
-              <span style="font-weight: bold; color: ${color}; text-transform: uppercase; font-size: 10px;">
-                🏛️ ${corridor.type} COURT TRAIL
+              <span style="font-weight: bold; color: ${color}; text-transform: uppercase; font-size: 10px; display: flex; align-items: center; gap: 5px;">
+                <img src="/logos/emblem_india.svg" alt="Court" style="width: 11px; height: 11px; filter: invert(1) brightness(2);" />
+                ${corridor.type} COURT TRAIL
               </span>
               <span style="background: rgba(255,255,255,0.08); font-size: 8px; padding: 1px 4px; border: 1px solid rgba(255,255,255,0.2);">
                 VERIFIED PATH
