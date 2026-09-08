@@ -67,20 +67,6 @@ export default function DashboardPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [drawZoneModalOpen, setDrawZoneModalOpen] = useState(false);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
-  const [judgeModalOpen, setJudgeModalOpen] = useState(false);
-  const [selectedRealCaseId, setSelectedRealCaseId] = useState('CS-001');
-
-  // Listen for case inspector trigger events
-  useEffect(() => {
-    const handleOpenJudgeModal = (e: any) => {
-      if (e.detail?.caseId) {
-        setSelectedRealCaseId(e.detail.caseId);
-      }
-      setJudgeModalOpen(true);
-    };
-    window.addEventListener('cybercast_open_judge_modal', handleOpenJudgeModal);
-    return () => window.removeEventListener('cybercast_open_judge_modal', handleOpenJudgeModal);
-  }, []);
 
   // Mobile / Tablet Tab State ('map' | 'layers' | 'intelligence')
   const [mobileTab, setMobileTab] = useState<'map' | 'layers' | 'intelligence'>('map');
@@ -160,7 +146,6 @@ export default function DashboardPage() {
         onSelectEntity={handleSelectFromHeader}
         onTriggerSOS={() => setCriticalAlertOpen(true)}
         unreadCount={alerts.filter(a => !a.acknowledged).length}
-        onOpenJudgeModal={() => setJudgeModalOpen(true)}
       />
 
       {/* 2. MAIN 3-PANEL COMMAND CENTER LAYOUT */}
@@ -303,12 +288,6 @@ export default function DashboardPage() {
         }}
         selectedBranch={selectedBranch}
         onCloseBranchDetail={() => setSelectedBranch(null)}
-        judgeModalOpen={judgeModalOpen}
-        onCloseJudgeModal={() => setJudgeModalOpen(false)}
-        initialRealCaseId={selectedRealCaseId}
-        onSelectCaseOnMap={(coords, zoom) => {
-          setFlyToCoords({ coords, zoom: zoom || 15 });
-        }}
       />
 
     </div>

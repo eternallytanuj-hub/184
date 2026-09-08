@@ -213,19 +213,22 @@ export default function HeaderNav() {
           </div>
 
           {/* Center Navigation Group */}
-          <nav className="hidden lg:flex items-center gap-1">
-            <span className="h-1.5 w-1.5 bg-neon mr-1.5" />
-            <Link href="/collab" className="nav-link-tech text-neon font-bold">
-              REPORT & COLLAB
+          <nav className="hidden lg:flex items-center gap-3">
+            <Link
+              href="/benchmarks"
+              className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/40 bg-black/60 hover:border-emerald-400 text-emerald-400 hover:text-emerald-300 font-mono text-[11px] uppercase tracking-wider transition-colors rounded-none"
+            >
+              <span className="h-1.5 w-1.5 bg-emerald-400 animate-pulse" />
+              <span>[ COURT BENCHMARKS ]</span>
             </Link>
           </nav>
 
           {/* Right Action Group */}
-          <div className="hidden sm:flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-4 lg:gap-5">
             {isAuthenticated && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {officer && (
-                  <div className="hidden xl:flex items-center gap-1.5 px-2 py-1 bg-black/80 border border-white/10 font-mono text-[9px] uppercase tracking-wider text-zinc-300">
+                  <div className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 bg-black/80 border border-white/10 font-mono text-[10px] uppercase tracking-wider text-zinc-300">
                     <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
                     <span className="text-neon font-bold">{officer.badgeId}</span>
                     <span className="text-zinc-500">|</span>
@@ -235,7 +238,7 @@ export default function HeaderNav() {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="px-2.5 py-1.5 border border-white/15 bg-black hover:border-red-500/50 hover:text-red-400 text-zinc-300 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
+                  className="px-3 py-1.5 border border-white/15 bg-black hover:border-red-500/50 hover:text-red-400 text-zinc-300 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
                   title="Sign out of CyberCast session"
                 >
                   [ SIGN OUT ]
@@ -244,11 +247,11 @@ export default function HeaderNav() {
             )}
             <Link
               href="/collab"
-              className="px-2.5 py-1.5 border border-white/15 bg-black hover:border-neon text-white hover:text-neon font-mono text-[10px] uppercase tracking-wider transition-colors"
+              className="px-3.5 py-1.5 border border-white/20 bg-black hover:border-neon text-white hover:text-neon font-mono text-[10px] sm:text-[11px] uppercase tracking-wider transition-colors rounded-none"
             >
               [ I4C COLLAB ]
             </Link>
-            <Button href="/dashboard" variant="neon" size="sm">
+            <Button href="/dashboard" variant="neon" size="sm" className="rounded-none">
               EXPLORE DASHBOARD
             </Button>
           </div>
@@ -287,11 +290,12 @@ export default function HeaderNav() {
               [ TEAM ROSTER ]
             </Link>
             <Link
-              href="/collab"
+              href="/benchmarks"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-[#ceff00] bg-[#ceff00]/10 text-[#ceff00] font-bold col-span-2 text-center"
+              className="p-2 border border-emerald-500/40 bg-emerald-950/20 text-emerald-400 hover:border-emerald-400 font-mono text-xs uppercase font-bold col-span-2 text-center flex items-center justify-center gap-2"
             >
-              [ REPORT & COLLAB ]
+              <span className="h-1.5 w-1.5 bg-emerald-400 animate-pulse" />
+              [ COURT BENCHMARKS ]
             </Link>
           </div>
           <div className="pt-2 space-y-2">
