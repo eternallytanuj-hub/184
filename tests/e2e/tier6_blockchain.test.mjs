@@ -521,3 +521,286 @@ describe('Tier 6 - Feature 8: Navigation, Tab Titles & Web Theme Invariants', ()
     assert.ok(!moduleContent.includes('rounded-full'), 'EvidenceModule must not contain rounded-full');
   });
 });
+
+// ---------------------------------------------------------------------------
+// SUITE 9: BLOCKCHAIN-BACKED CASE INGESTION & COMPLAINT PREDICTOR ANCHORING
+// ---------------------------------------------------------------------------
+describe('Tier 6 - Feature 9: Blockchain-Backed Case Ingestion & Complaint Predictor Anchoring', () => {
+  const collabDataPath = 'src/data/collabData.ts';
+  const modalPath = 'src/components/collab/ComplaintPredictorModal.tsx';
+
+  test('T6.9.1 - CaseEntity interface defines blockchainProof schema', () => {
+    const content = readProjectFile(collabDataPath);
+    assert.ok(content.includes('blockchainProof?: {'), 'CaseEntity must include optional blockchainProof');
+    assert.ok(content.includes('txHash: string;'), 'blockchainProof must include txHash');
+    assert.ok(content.includes('blockNumber: number;'), 'blockchainProof must include blockNumber');
+    assert.ok(content.includes('certId: string;'), 'blockchainProof must include certId');
+    assert.ok(content.includes('anchoredAt: string;'), 'blockchainProof must include anchoredAt');
+    assert.ok(content.includes('manifestCid?: string;'), 'blockchainProof must include manifestCid');
+    assert.ok(content.includes('manifestHash?: string;'), 'blockchainProof must include manifestHash');
+  });
+
+  test('T6.9.2 - Pre-seeded case CY2026-MH-44521 contains valid blockchainProof', () => {
+    const script = `
+      import { CASES_DATA } from "./src/data/collabData";
+      const c = CASES_DATA.find(x => x.id === "CY2026-MH-44521");
+      console.log(JSON.stringify({
+        hasProof: !!c?.blockchainProof,
+        txHash: c?.blockchainProof?.txHash,
+        blockNumber: c?.blockchainProof?.blockNumber,
+        certId: c?.blockchainProof?.certId,
+        manifestHash: c?.blockchainProof?.manifestHash
+      }));
+    `;
+    const out = JSON.parse(runTsxScript(script));
+    assert.equal(out.hasProof, true, 'CY2026-MH-44521 must have blockchainProof pre-seeded');
+    assert.ok(out.txHash?.startsWith('0x') && out.txHash.length === 66, 'Valid 66-char txHash');
+    assert.ok(out.blockNumber >= 14892014, 'Realistic block height');
+    assert.ok(out.certId?.startsWith('BSA-63-'), 'Valid BSA certificate ID');
+    assert.equal(out.manifestHash?.length, 64, 'Valid 64-char SHA-256 hash');
+  });
+
+  test('T6.9.3 - ComplaintPredictorModal provides institutional toggle enabled by default', () => {
+    const content = readProjectFile(modalPath);
+    assert.ok(content.includes('const [isBlockchainAnchoringEnabled, setIsBlockchainAnchoringEnabled] = useState(true)'), 'Anchoring toggle must be enabled by default');
+    assert.ok(content.includes('[ 🔒 IMMUTABLE BSA 2023 LEDGER ANCHORING:'), 'Header must contain institutional toggle badge');
+  });
+
+  test('T6.9.4 - ComplaintPredictorModal constructs canonical AI prediction manifest', () => {
+    const content = readProjectFile(modalPath);
+    assert.ok(content.includes("manifestVersion: '1.0-BSA2023'"), 'Manifest must specify version 1.0-BSA2023');
+    assert.ok(content.includes('complaintVector:'), 'Manifest must include complaintVector');
+    assert.ok(content.includes('aiInferenceOutput:'), 'Manifest must include aiInferenceOutput');
+    assert.ok(content.includes('shapAttributionFactors:'), 'Manifest must include shapAttributionFactors');
+    assert.ok(content.includes('officerProvenance:'), 'Manifest must include officerProvenance');
+  });
+
+  test('T6.9.5 - ComplaintPredictorModal provides 3-step micro-telemetry ticker', () => {
+    const content = readProjectFile(modalPath);
+    assert.ok(content.includes('1/3 Calculating SHA-256 Manifest Digest...'), 'Step 1 ticker label');
+    assert.ok(content.includes('2/3 Submitting EIP-712 Meta-Transaction to Polygon Amoy...'), 'Step 2 ticker label');
+    assert.ok(content.includes('Confirmed — Tx:'), 'Step 3 ticker label');
+  });
+
+  test('T6.9.6 - Dispatch button attaches blockchainProof to newCase on dispatch', () => {
+    const content = readProjectFile(modalPath);
+    assert.ok(content.includes('[ SAVE & DISPATCH TO ACTIVE DOSSIER ]'), 'Button label must be [ SAVE & DISPATCH TO ACTIVE DOSSIER ]');
+    assert.ok(content.includes('blockchainProof: anchoredProof ?'), 'newCase must embed blockchainProof from anchoredProof');
+  });
+
+  test('T6.9.7 - anchorEvidenceToLedger dynamically creates valid anchored report with chain of custody', () => {
+    const script = `
+      import { anchorEvidenceToLedger } from "./src/lib/blockchain/evidenceLedger";
+      async function main() {
+        const res = await anchorEvidenceToLedger(
+          {
+            caseId: "NCRP-TEST-2026-001",
+            title: "AI Predictive Interdiction & Complaint Dossier",
+            category: "Forensic / AI Intelligence Report",
+            type: "pdf",
+            fileName: "NCRP-TEST-2026-001_prediction_manifest.json",
+            fileSize: "2.4 KB",
+            sha256Hash: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+            chainOfCustody: [
+              {
+                timestamp: "12:00 IST",
+                officerName: "Test Officer",
+                action: "[COMPLAINT_INGESTED_AND_AI_PREDICTED]",
+                purpose: "Section 63 BSA 2023 Immutability Lock for AI Prediction",
+                digitalSignature: "OFF-TEST:EIP712-SIGNED"
+              }
+            ]
+          },
+          {
+            name: "Test Officer",
+            badgeNumber: "RJ-TEST-01",
+            rank: "Inspector",
+            agency: "Rajasthan Police"
+          }
+        );
+        console.log(JSON.stringify({
+          txHash: res.blockchainTxHash,
+          blockNumber: res.polygonBlockNumber,
+          certId: res.bsa63CertificateId,
+          custodyAction: res.evidenceItem.chainOfCustody[0].action
+        }));
+      }
+      main();
+    `;
+    const out = JSON.parse(runTsxScript(script));
+    assert.ok(out.txHash.startsWith('0x') && out.txHash.length === 66, 'Dynamic 66-char txHash generated');
+    assert.ok(out.blockNumber > 14890000, 'Valid block height generated');
+    assert.ok(out.certId.startsWith('BSA-63-2026-RAJ-'), 'Correct state code in certId');
+    assert.equal(out.custodyAction, '[COMPLAINT_INGESTED_AND_AI_PREDICTED]', 'Chain of custody recorded');
+  });
+
+  test('T6.9.8 - Verification engine resolves BSA Certificate ID directly for pre-seeded case CY2026-MH-44521', () => {
+    const script = `
+      import { verifyHashOnLedger } from "./src/lib/blockchain/evidenceLedger";
+      async function main() {
+        const res = await verifyHashOnLedger("BSA-63-2026-MH-8812");
+        console.log(JSON.stringify({
+          isAuthentic: res.isAuthentic,
+          blockNumber: res.blockNumber,
+          certId: res.bsaCertificateId,
+          title: res.matchedEvidence?.title,
+          fileName: res.matchedEvidence?.fileName
+        }));
+      }
+      main();
+    `;
+    const out = JSON.parse(runTsxScript(script));
+    assert.equal(out.isAuthentic, true, 'BSA-63-2026-MH-8812 must be verified as authentic');
+    assert.equal(out.blockNumber, 14892015, 'Block number must match case blockchainProof (#14892015)');
+    assert.equal(out.certId, 'BSA-63-2026-MH-8812', 'Certificate ID must match query');
+    assert.equal(out.title, 'AI Predictive Interdiction & Complaint Dossier', 'Title must be AI Predictive Dossier');
+    assert.equal(out.fileName, 'CY2026-MH-44521_prediction_manifest.json', 'File name must be prediction manifest');
+  });
+
+  test('T6.9.9 - Case ID lookup prioritizes AI prediction manifest and preserves 4-item artifact accounting', () => {
+    const script = `
+      import { verifyHashOnLedger } from "./src/lib/blockchain/evidenceLedger";
+      async function main() {
+        const res = await verifyHashOnLedger("CY2026-MH-44521");
+        console.log(JSON.stringify({
+          isAuthentic: res.isAuthentic,
+          blockNumber: res.blockNumber,
+          certId: res.bsaCertificateId,
+          title: res.matchedEvidence?.title,
+          details: res.details
+        }));
+      }
+      main();
+    `;
+    const out = JSON.parse(runTsxScript(script));
+    assert.equal(out.isAuthentic, true, 'Case lookup must be authentic');
+    assert.equal(out.blockNumber, 14892015, 'Primary artifact block must be #14892015');
+    assert.equal(out.certId, 'BSA-63-2026-MH-8812', 'Primary artifact certificate must be BSA-63-2026-MH-8812');
+    assert.equal(out.title, 'AI Predictive Interdiction & Complaint Dossier', 'Primary artifact must be AI Prediction Dossier');
+    assert.ok(out.details.includes('4 anchored artifacts'), 'Details must retain 4 anchored artifacts count');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SUITE 10: CASE MANAGEMENT, EVIDENCE LOCKER & COURT VERIFIER INTEGRATION
+// ---------------------------------------------------------------------------
+describe('Tier 6 - Feature 10: Case Management, Evidence Locker & Court Verifier Integration', () => {
+  const caseMgmtPath = 'src/components/collab/CaseManagementModule.tsx';
+  const evidenceModPath = 'src/components/collab/EvidenceModule.tsx';
+  const verifyPath = 'src/app/verify/page.tsx';
+
+  test('T6.10.1 - CaseManagementModule renders on-chain badge [ 🔒 ANCHORED · BLK #... ] with hover tooltip', () => {
+    const content = readProjectFile(caseMgmtPath);
+    assert.ok(content.includes('[ 🔒 ANCHORED · BLK #{c.blockchainProof.blockNumber} ]'), 'Must render anchored block badge');
+    assert.ok(content.includes('Polygon Tx: ${c.blockchainProof.txHash}'), 'Must include hover tooltip with Polygon Tx');
+  });
+
+  test('T6.10.2 - CaseManagementModule provides Section 63 BSA Certificate modal with SVG QR code', () => {
+    const content = readProjectFile(caseMgmtPath);
+    assert.ok(content.includes('handleOpenJudicialCertificate'), 'Must provide click handler to open judicial certificate');
+    assert.ok(content.includes('activeCert.qrCodeSvg'), 'Must render inline SVG QR code in certificate modal');
+    assert.ok(content.includes('Print Certificate'), 'Must include Print Certificate action');
+  });
+
+  test('T6.10.3 - EvidenceModule listens for cybercast_evidence_anchored window event', () => {
+    const content = readProjectFile(evidenceModPath);
+    assert.ok(content.includes("window.addEventListener('cybercast_evidence_anchored'"), 'Must listen for cybercast_evidence_anchored event');
+    assert.ok(content.includes("window.addEventListener('storage'"), 'Must listen for storage sync event');
+  });
+
+  test('T6.10.4 - EvidenceModule supports Forensic / AI Intelligence Report category', () => {
+    const content = readProjectFile(evidenceModPath);
+    assert.ok(content.includes("id: 'Forensic / AI Intelligence Report'"), 'Must include Forensic / AI Intelligence Report category');
+    assert.ok(content.includes('Forensic & AI Reports'), 'Must have user-friendly category label');
+  });
+
+  test('T6.10.5 - Verify page displays STATUS: AUTHENTIC & UNALTERED (ON-CHAIN VERIFIED)', () => {
+    const content = readProjectFile(verifyPath);
+    assert.ok(content.includes('STATUS: AUTHENTIC & UNALTERED (ON-CHAIN VERIFIED)'), 'Verify page must display authentic verdict');
+  });
+
+  test('T6.10.6 - Verify page displays Pre-Cashout Mathematical Proof & Timeliness Panel', () => {
+    const content = readProjectFile(verifyPath);
+    assert.ok(content.includes('PRE-CASHOUT IMMUTABILITY PROOF // SECTION 63 BSA 2023'), 'Must render pre-cashout immutability proof header');
+    assert.ok(content.includes('COMPLAINT INGESTION TIMESTAMP'), 'Must display ingestion timestamp');
+    assert.ok(content.includes('PREDICTED CASH-OUT WINDOW'), 'Must display predicted cashout window');
+    assert.ok(content.includes('Mathematical Proof of Timeliness:'), 'Must display mathematical proof of timeliness');
+  });
+
+  test('T6.10.7 - Strict theme adherence: CaseManagementModule and ComplaintPredictorModal contain no rounded-full or purple gradient slop', () => {
+    const caseMgmtContent = readProjectFile(caseMgmtPath);
+    const modalContent = readProjectFile('src/components/collab/ComplaintPredictorModal.tsx');
+    assert.ok(!caseMgmtContent.includes('rounded-full'), 'CaseManagementModule must not contain rounded-full');
+    assert.ok(!modalContent.includes('rounded-full'), 'ComplaintPredictorModal must not contain rounded-full');
+    assert.ok(!caseMgmtContent.includes('bg-gradient-to-r from-purple'), 'CaseManagementModule must not contain purple AI slop gradients');
+    assert.ok(!modalContent.includes('bg-gradient-to-r from-purple'), 'ComplaintPredictorModal must not contain purple AI slop gradients');
+  });
+
+  test('T6.10.8 - CaseManagementModule handleOpenJudicialCertificate accurately binds case blockchainProof to Section 63 BSA certificate', () => {
+    const script = `
+      import { CASES_DATA } from "./src/data/collabData";
+      import { generateBsa63Certificate, getUniqueLedgerItems } from "./src/lib/blockchain/evidenceLedger";
+
+      const c = CASES_DATA.find(x => x.id === "CY2026-MH-44521");
+      const uniqueItems = getUniqueLedgerItems();
+      const specificItem = uniqueItems.find(
+        (item) =>
+          item.bsa63CertificateId === c?.blockchainProof?.certId ||
+          (item.polygonBlockNumber === c?.blockchainProof?.blockNumber && item.blockchainTxHash === c?.blockchainProof?.txHash) ||
+          (item.caseId && item.caseId.toLowerCase() === c?.id.toLowerCase() && item.category === "Forensic / AI Intelligence Report")
+      );
+
+      const targetItem = specificItem || {
+        id: "EVD-" + c.id.replace(/[^a-zA-Z0-9]/g, ""),
+        caseId: c.id,
+        title: "AI Predictive Interdiction & Complaint Dossier",
+        category: "Forensic / AI Intelligence Report",
+        type: "json",
+        fileName: c.id + "_prediction_manifest.json",
+        fileSize: "2.4 KB",
+        uploadedAt: c.blockchainProof.anchoredAt || c.registeredAt,
+        uploadedBy: c.assignedOfficerName + " (" + c.assignedOfficerId + ")",
+        uploadingOfficerId: c.assignedOfficerId,
+        deviceUsed: "I4C Police Command Forensic Console (MHA VPN)",
+        gpsCoordinates: "28.6139° N, 77.2090° E (Station GPS Verified)",
+        sha256Hash: c.blockchainProof.manifestHash,
+        relevance: "Primary",
+        source: "AI-detected",
+        confidentiality: "Restricted",
+        blockchainTxHash: c.blockchainProof.txHash,
+        polygonBlockNumber: c.blockchainProof.blockNumber,
+        ipfsCid: c.blockchainProof.manifestCid,
+        anchoredAt: c.blockchainProof.anchoredAt,
+        bsa63CertificateId: c.blockchainProof.certId,
+        ledgerStatus: "ANCHORED",
+        chainOfCustody: []
+      };
+
+      const cert = generateBsa63Certificate(targetItem);
+      console.log(JSON.stringify({
+        certId: cert.certificateId,
+        blockNumber: cert.polygonBlockNumber,
+        title: cert.title,
+        fileName: cert.fileName
+      }));
+    `;
+    const out = JSON.parse(runTsxScript(script));
+    assert.equal(out.certId, 'BSA-63-2026-MH-8812', 'Certificate ID must bind to case proof BSA-63-2026-MH-8812');
+    assert.equal(out.blockNumber, 14892015, 'Block height must bind to case proof #14892015');
+    assert.equal(out.title, 'AI Predictive Interdiction & Complaint Dossier', 'Title must be AI Predictive Dossier');
+    assert.equal(out.fileName, 'CY2026-MH-44521_prediction_manifest.json', 'File name must be case prediction manifest');
+  });
+
+  test('T6.10.9 - ComplaintPredictorModal generates json evidence artifact type and avoids loading layout collisions', () => {
+    const content = readProjectFile('src/components/collab/ComplaintPredictorModal.tsx');
+    assert.ok(content.includes("type: 'json'"), 'Artifact type must be json');
+    assert.ok(content.includes('{isAnalyzing && !prediction && ('), 'Loading state must check !prediction to prevent layout collisions');
+  });
+
+  test('T6.10.10 - Verify page getCategoryIcon maps Forensic & AI Reports category to ShieldCheck icon', () => {
+    const content = readProjectFile(verifyPath);
+    assert.ok(content.includes("case 'Forensic / AI Intelligence Report':"), 'Verify page must support Forensic / AI Intelligence Report category');
+    assert.ok(content.includes('<ShieldCheck'), 'Must map to ShieldCheck icon');
+  });
+});
+

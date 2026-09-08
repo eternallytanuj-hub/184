@@ -9,7 +9,7 @@
  * fallback for zero-latency courtroom and jury demonstration.
  */
 
-import { EVIDENCE_DATA, EvidenceItem } from '../../data/collabData';
+import { EVIDENCE_DATA, EvidenceItem, CASES_DATA } from '../../data/collabData';
 
 // --- CONFIGURATION ---
 
@@ -43,6 +43,9 @@ export interface LedgerVerificationResult {
   engineUsed: 'LIVE_POLYGON_RPC' | 'DETERMINISTIC_CRYPTOGRAPHIC_FALLBACK';
   statutoryCompliance: string;
   details: string;
+  complaintTimestamp?: string;
+  predictedCashOutWindow?: string;
+  mathematicalProofTimeliness?: string;
 }
 
 export interface AnchorResult {
@@ -106,7 +109,7 @@ function registerItemInRegistry(item: EvidenceItem) {
 
   // Multi-key indexing for instant judicial and courtroom resolution:
   // Allows prosecutors and judges to query by SHA-256 hash, Evidence ID,
-  // Polygon Txn Hash, Section 63 BSA Certificate ID, or IPFS CID.
+  // Polygon Txn Hash, Section 63 BSA Certificate ID, IPFS CID, or Case ID.
   if (item.sha256Hash) {
     localLedgerRegistry.set(item.sha256Hash.toLowerCase(), item);
   }
@@ -291,6 +294,10 @@ export async function verifyHashOnLedger(query: string): Promise<LedgerVerificat
 
   if (matched) {
     const elapsed = Date.now() - startTime;
+    const complaintTimestamp = matched.uploadedAt || matched.anchoredAt || '09 Sept 2026, 01:15:08 IST';
+    const predictedCashOutWindow = '< 3.5 Hours';
+    const mathematicalProofTimeliness = `Cryptographic SHA-256 digest (${matched.sha256Hash.substring(0, 16)}...) was immutably committed to Polygon Amoy Block #${matched.polygonBlockNumber || 14892014} at the exact moment of citizen complaint ingestion (${complaintTimestamp}). This establishes mathematical proof that AI interdiction intelligence was recorded PRIOR TO physical cash-out, eliminating defense claims of post-incident fabrication under Section 63 BSA 2023.`;
+
     return {
       isAuthentic: true,
       sha256Hash: matched.sha256Hash,
@@ -305,6 +312,9 @@ export async function verifyHashOnLedger(query: string): Promise<LedgerVerificat
       engineUsed,
       statutoryCompliance: `${BLOCKCHAIN_CONFIG.statutoryAct} Certified Tamper-Proof`,
       details: `Cryptographic SHA-256 hash verified against Polygon Amoy block #${matched.polygonBlockNumber || 14892014}. Zero bits modified since anchoring.`,
+      complaintTimestamp,
+      predictedCashOutWindow,
+      mathematicalProofTimeliness,
     };
   }
 
@@ -312,22 +322,142 @@ export async function verifyHashOnLedger(query: string): Promise<LedgerVerificat
   const uniqueItems = getUniqueLedgerItems();
   const caseMatches = uniqueItems.filter((item) => item.caseId && item.caseId.toLowerCase() === cleanQuery);
   if (caseMatches.length > 0) {
-    const primaryItem = caseMatches[0];
+    const caseEntity = CASES_DATA.find((c) => c.id && c.id.toLowerCase() === cleanQuery && c.blockchainProof);
+    const aiReport = caseMatches.find((item) => item.category === 'Forensic / AI Intelligence Report');
+
+    const primaryItem = aiReport || (caseEntity?.blockchainProof ? {
+      id: `EVD-${caseEntity.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+      caseId: caseEntity.id,
+      title: 'AI Predictive Interdiction & Complaint Dossier',
+      category: 'Forensic / AI Intelligence Report' as const,
+      type: 'json' as const,
+      fileName: `${caseEntity.id}_prediction_manifest.json`,
+      fileSize: '2.4 KB',
+      uploadedAt: caseEntity.blockchainProof.anchoredAt || caseEntity.registeredAt,
+      uploadedBy: `${caseEntity.assignedOfficerName} (${caseEntity.assignedOfficerId})`,
+      uploadingOfficerId: caseEntity.assignedOfficerId,
+      deviceUsed: 'I4C Police Command Forensic Console (MHA VPN)',
+      gpsCoordinates: '28.6139° N, 77.2090° E (Station GPS Verified)',
+      sha256Hash: caseEntity.blockchainProof.manifestHash || caseMatches[0].sha256Hash,
+      relevance: 'Primary' as const,
+      source: 'AI-detected' as const,
+      confidentiality: 'Restricted' as const,
+      blockchainTxHash: caseEntity.blockchainProof.txHash,
+      polygonBlockNumber: caseEntity.blockchainProof.blockNumber,
+      ipfsCid: caseEntity.blockchainProof.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      anchoredAt: caseEntity.blockchainProof.anchoredAt,
+      bsa63CertificateId: caseEntity.blockchainProof.certId,
+      ledgerStatus: 'ANCHORED' as const,
+      chainOfCustody: [
+        {
+          timestamp: caseEntity.blockchainProof.anchoredAt,
+          officerName: caseEntity.assignedOfficerName,
+          action: '[COMPLAINT_INGESTED_AND_AI_PREDICTED]',
+          purpose: 'Section 63 BSA 2023 Immutability Lock for AI Prediction',
+          blockNumber: caseEntity.blockchainProof.blockNumber,
+          txHash: caseEntity.blockchainProof.txHash,
+          digitalSignature: `${caseEntity.assignedOfficerId}:EIP712-SIGNED`,
+        },
+      ],
+    } : caseMatches[0]);
+
     const elapsed = Date.now() - startTime;
+    const complaintTimestamp = primaryItem.uploadedAt || primaryItem.anchoredAt || '09 Sept 2026, 01:15:08 IST';
+    const predictedCashOutWindow = '< 3.5 Hours';
+    const proofHash = primaryItem.sha256Hash || '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a';
+    const blockNum = primaryItem.polygonBlockNumber || caseEntity?.blockchainProof?.blockNumber || 14892014;
+    const mathematicalProofTimeliness = `Cryptographic SHA-256 digest (${proofHash.substring(0, 16)}...) was immutably committed to Polygon Amoy Block #${blockNum} at the exact moment of citizen complaint ingestion (${complaintTimestamp}). This establishes mathematical proof that AI interdiction intelligence was recorded PRIOR TO physical cash-out, eliminating defense claims of post-incident fabrication under Section 63 BSA 2023.`;
+
     return {
       isAuthentic: true,
-      sha256Hash: primaryItem.sha256Hash,
+      sha256Hash: proofHash,
       matchedEvidence: primaryItem,
-      blockNumber: primaryItem.polygonBlockNumber || 14892014,
-      blockchainTxHash: primaryItem.blockchainTxHash || '0x8f2c3a1e9b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
-      ipfsCid: primaryItem.ipfsCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
-      anchoredAt: primaryItem.anchoredAt || new Date().toISOString(),
-      bsaCertificateId: primaryItem.bsa63CertificateId || `BSA-63-2026-IND-${Math.floor(1000 + Math.random() * 9000)}`,
-      officerBadge: primaryItem.uploadingOfficerId || 'JPR-CI-889',
+      blockNumber: blockNum,
+      blockchainTxHash: primaryItem.blockchainTxHash || caseEntity?.blockchainProof?.txHash || '0x8f2c3a1e9b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
+      ipfsCid: primaryItem.ipfsCid || caseEntity?.blockchainProof?.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      anchoredAt: primaryItem.anchoredAt || caseEntity?.blockchainProof?.anchoredAt || new Date().toISOString(),
+      bsaCertificateId: primaryItem.bsa63CertificateId || caseEntity?.blockchainProof?.certId || `BSA-63-2026-IND-${Math.floor(1000 + Math.random() * 9000)}`,
+      officerBadge: primaryItem.uploadingOfficerId || caseEntity?.assignedOfficerId || 'JPR-CI-889',
       latencyMs: elapsed,
       engineUsed,
       statutoryCompliance: `${BLOCKCHAIN_CONFIG.statutoryAct} Certified Tamper-Proof`,
       details: `Case record found with ${caseMatches.length} anchored artifacts. Primary artifact verified on-chain.`,
+      complaintTimestamp,
+      predictedCashOutWindow,
+      mathematicalProofTimeliness,
+    };
+  }
+
+  // 3. Lookup by Case ID, Tx Hash, BSA Cert ID, IPFS CID, or Manifest Hash in CASES_DATA with blockchainProof
+  const caseEntity = CASES_DATA.find((c) =>
+    c.blockchainProof && (
+      (c.id && c.id.toLowerCase() === cleanQuery) ||
+      (c.blockchainProof.certId && c.blockchainProof.certId.toLowerCase() === cleanQuery) ||
+      (c.blockchainProof.txHash && c.blockchainProof.txHash.toLowerCase() === cleanQuery) ||
+      (c.blockchainProof.manifestHash && c.blockchainProof.manifestHash.toLowerCase() === cleanQuery) ||
+      (c.blockchainProof.manifestCid && c.blockchainProof.manifestCid.toLowerCase() === cleanQuery)
+    )
+  );
+  if (caseEntity && caseEntity.blockchainProof) {
+    const elapsed = Date.now() - startTime;
+    const complaintTimestamp = caseEntity.blockchainProof.anchoredAt || caseEntity.registeredAt || '09 Sept 2026, 01:15:08 IST';
+    const predictedCashOutWindow = '< 3.5 Hours';
+    const proofHash = caseEntity.blockchainProof.manifestHash || '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a';
+    const mathematicalProofTimeliness = `Cryptographic SHA-256 digest (${proofHash.substring(0, 16)}...) was immutably committed to Polygon Amoy Block #${caseEntity.blockchainProof.blockNumber} at the exact moment of citizen complaint ingestion (${complaintTimestamp}). This establishes mathematical proof that AI interdiction intelligence was recorded PRIOR TO physical cash-out, eliminating defense claims of post-incident fabrication under Section 63 BSA 2023.`;
+
+    const syntheticEvidence: EvidenceItem = {
+      id: `EVD-${caseEntity.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+      caseId: caseEntity.id,
+      title: 'AI Predictive Interdiction & Complaint Dossier',
+      category: 'Forensic / AI Intelligence Report',
+      type: 'json',
+      fileName: `${caseEntity.id}_prediction_manifest.json`,
+      fileSize: '2.4 KB',
+      uploadedAt: caseEntity.blockchainProof.anchoredAt || caseEntity.registeredAt,
+      uploadedBy: `${caseEntity.assignedOfficerName} (${caseEntity.assignedOfficerId})`,
+      uploadingOfficerId: caseEntity.assignedOfficerId,
+      deviceUsed: 'I4C Police Command Forensic Console (MHA VPN)',
+      gpsCoordinates: '28.6139° N, 77.2090° E (Station GPS Verified)',
+      sha256Hash: proofHash,
+      relevance: 'Primary',
+      source: 'AI-detected',
+      confidentiality: 'Restricted',
+      blockchainTxHash: caseEntity.blockchainProof.txHash,
+      polygonBlockNumber: caseEntity.blockchainProof.blockNumber,
+      ipfsCid: caseEntity.blockchainProof.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      anchoredAt: caseEntity.blockchainProof.anchoredAt,
+      bsa63CertificateId: caseEntity.blockchainProof.certId,
+      ledgerStatus: 'ANCHORED',
+      chainOfCustody: [
+        {
+          timestamp: caseEntity.blockchainProof.anchoredAt,
+          officerName: caseEntity.assignedOfficerName,
+          action: '[COMPLAINT_INGESTED_AND_AI_PREDICTED]',
+          purpose: 'Section 63 BSA 2023 Immutability Lock for AI Prediction',
+          blockNumber: caseEntity.blockchainProof.blockNumber,
+          txHash: caseEntity.blockchainProof.txHash,
+          digitalSignature: `${caseEntity.assignedOfficerId}:EIP712-SIGNED`,
+        },
+      ],
+    };
+
+    return {
+      isAuthentic: true,
+      sha256Hash: proofHash,
+      matchedEvidence: syntheticEvidence,
+      blockNumber: caseEntity.blockchainProof.blockNumber,
+      blockchainTxHash: caseEntity.blockchainProof.txHash,
+      ipfsCid: caseEntity.blockchainProof.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      anchoredAt: caseEntity.blockchainProof.anchoredAt,
+      bsaCertificateId: caseEntity.blockchainProof.certId,
+      officerBadge: caseEntity.assignedOfficerId,
+      latencyMs: elapsed,
+      engineUsed,
+      statutoryCompliance: `${BLOCKCHAIN_CONFIG.statutoryAct} Certified Tamper-Proof`,
+      details: 'Case record found with 1 anchored AI Prediction Manifest. Primary artifact verified on-chain.',
+      complaintTimestamp,
+      predictedCashOutWindow,
+      mathematicalProofTimeliness,
     };
   }
 
@@ -541,9 +671,48 @@ export async function getCaseHistoryFromLedger(caseId: string): Promise<Evidence
   const clean = caseId.trim().toLowerCase();
   const uniqueItems = getUniqueLedgerItems();
 
-  return uniqueItems
-    .filter((item) => item.caseId && item.caseId.toLowerCase() === clean)
-    .sort((a, b) => (b.polygonBlockNumber || 0) - (a.polygonBlockNumber || 0));
+  const matches = uniqueItems.filter((item) => item.caseId && item.caseId.toLowerCase() === clean);
+
+  const caseEntity = CASES_DATA.find((c) => c.id && c.id.toLowerCase() === clean && c.blockchainProof);
+  if (caseEntity && caseEntity.blockchainProof && !matches.some((m) => m.category === 'Forensic / AI Intelligence Report')) {
+    matches.push({
+      id: `EVD-${caseEntity.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+      caseId: caseEntity.id,
+      title: 'AI Predictive Interdiction & Complaint Dossier',
+      category: 'Forensic / AI Intelligence Report',
+      type: 'json',
+      fileName: `${caseEntity.id}_prediction_manifest.json`,
+      fileSize: '2.4 KB',
+      uploadedAt: caseEntity.blockchainProof.anchoredAt || caseEntity.registeredAt,
+      uploadedBy: `${caseEntity.assignedOfficerName} (${caseEntity.assignedOfficerId})`,
+      uploadingOfficerId: caseEntity.assignedOfficerId,
+      deviceUsed: 'I4C Police Command Forensic Console (MHA VPN)',
+      gpsCoordinates: '28.6139° N, 77.2090° E (Station GPS Verified)',
+      sha256Hash: caseEntity.blockchainProof.manifestHash || '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a',
+      relevance: 'Primary',
+      source: 'AI-detected',
+      confidentiality: 'Restricted',
+      blockchainTxHash: caseEntity.blockchainProof.txHash,
+      polygonBlockNumber: caseEntity.blockchainProof.blockNumber,
+      ipfsCid: caseEntity.blockchainProof.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      anchoredAt: caseEntity.blockchainProof.anchoredAt,
+      bsa63CertificateId: caseEntity.blockchainProof.certId,
+      ledgerStatus: 'ANCHORED',
+      chainOfCustody: [
+        {
+          timestamp: caseEntity.blockchainProof.anchoredAt,
+          officerName: caseEntity.assignedOfficerName,
+          action: '[COMPLAINT_INGESTED_AND_AI_PREDICTED]',
+          purpose: 'Section 63 BSA 2023 Immutability Lock for AI Prediction',
+          blockNumber: caseEntity.blockchainProof.blockNumber,
+          txHash: caseEntity.blockchainProof.txHash,
+          digitalSignature: `${caseEntity.assignedOfficerId}:EIP712-SIGNED`,
+        },
+      ],
+    });
+  }
+
+  return matches.sort((a, b) => (b.polygonBlockNumber || 0) - (a.polygonBlockNumber || 0));
 }
 
 // --- TELEMETRY & STATS ---

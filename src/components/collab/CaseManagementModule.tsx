@@ -6,12 +6,13 @@ import {
   Shield, AlertTriangle, CheckCircle2, Clock, Lock, 
   FileText, MessageSquare, Download, Share2, CornerDownRight,
   TrendingDown, Check, X, Building, Smartphone, MapPin, 
-  ChevronRight, RefreshCw, Send, Sparkles, ExternalLink
+  ChevronRight, RefreshCw, Send, Sparkles, ExternalLink,
+  Printer, ShieldCheck, Database, FileCheck
 } from 'lucide-react';
 import { 
   CaseEntity, CASES_DATA, CaseStatus, PriorityLevel, 
   OfficerRole, OFFICER_ROLES, OfficerProfile, MoneyTrailNode, EVIDENCE_DATA,
-  CHAT_MESSAGES, ChatMessage
+  CHAT_MESSAGES, ChatMessage, EvidenceItem
 } from '@/data/collabData';
 import ComplaintPredictorModal from './ComplaintPredictorModal';
 import { 
@@ -20,6 +21,12 @@ import {
   PredictionResponse, 
   SHAPExplanation 
 } from '@/lib/apiService';
+import {
+  generateBsa63Certificate,
+  getPolygonScanTxUrl,
+  Bsa63Certificate,
+  getUniqueLedgerItems
+} from '@/lib/blockchain/evidenceLedger';
 
 interface CaseManagementModuleProps {
   currentRole?: OfficerRole;
@@ -62,6 +69,10 @@ export default function CaseManagementModule({
   const [isReAnalyzingCase, setIsReAnalyzingCase] = useState(false);
   const [caseLivePrediction, setCaseLivePrediction] = useState<PredictionResponse | null>(null);
   const [caseLiveShap, setCaseLiveShap] = useState<SHAPExplanation | null>(null);
+
+  // Section 63 BSA 2023 Digital Certificate Modal State
+  const [activeCert, setActiveCert] = useState<Bsa63Certificate | null>(null);
+  const [showCertModal, setShowCertModal] = useState(false);
 
   // Money trail freeze state tracker
   const [frozenNodeIds, setFrozenNodeIds] = useState<string[]>([]);
@@ -204,6 +215,87 @@ export default function CaseManagementModule({
     setActiveCase(newCase);
     if (onAuditLog) {
       onAuditLog(`New Case ${newCase.id} created from Live ML Model Prediction`, newCase.id, 'CASE');
+    }
+  };
+
+  const handleOpenJudicialCertificate = (c: CaseEntity) => {
+    const officerObj = currentOfficer || OFFICER_ROLES[currentRole];
+    const uniqueItems = getUniqueLedgerItems();
+
+    // 1. If case has explicit blockchain proof (e.g. AI prediction manifest anchoring),
+    // prioritize the exact evidence item or construct the canonical prediction manifest certificate
+    if (c.blockchainProof) {
+      const specificItem = uniqueItems.find(
+        (item) =>
+          item.bsa63CertificateId === c.blockchainProof?.certId ||
+          (item.polygonBlockNumber === c.blockchainProof?.blockNumber && item.blockchainTxHash === c.blockchainProof?.txHash) ||
+          (item.caseId && item.caseId.toLowerCase() === c.id.toLowerCase() && item.category === 'Forensic / AI Intelligence Report')
+      );
+
+      const targetItem: EvidenceItem = specificItem || {
+        id: `EVD-${c.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+        caseId: c.id,
+        title: 'AI Predictive Interdiction & Complaint Dossier',
+        category: 'Forensic / AI Intelligence Report',
+        type: 'json',
+        fileName: `${c.id}_prediction_manifest.json`,
+        fileSize: '2.4 KB',
+        uploadedAt: c.blockchainProof.anchoredAt || c.registeredAt,
+        uploadedBy: `${c.assignedOfficerName} (${c.assignedOfficerId})`,
+        uploadingOfficerId: c.assignedOfficerId || officerObj.badgeNumber,
+        deviceUsed: 'I4C Police Command Forensic Console (MHA VPN)',
+        gpsCoordinates: '28.6139° N, 77.2090° E (Station GPS Verified)',
+        sha256Hash: c.blockchainProof.manifestHash || '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a',
+        relevance: 'Primary',
+        source: 'AI-detected',
+        confidentiality: 'Restricted',
+        blockchainTxHash: c.blockchainProof.txHash,
+        polygonBlockNumber: c.blockchainProof.blockNumber,
+        ipfsCid: c.blockchainProof.manifestCid || 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+        anchoredAt: c.blockchainProof.anchoredAt,
+        bsa63CertificateId: c.blockchainProof.certId,
+        ledgerStatus: 'ANCHORED',
+        chainOfCustody: [
+          {
+            timestamp: c.blockchainProof.anchoredAt,
+            officerName: c.assignedOfficerName,
+            action: '[COMPLAINT_INGESTED_AND_AI_PREDICTED]',
+            purpose: 'Section 63 BSA 2023 Immutability Lock for AI Prediction',
+            blockNumber: c.blockchainProof.blockNumber,
+            txHash: c.blockchainProof.txHash,
+            digitalSignature: `${c.assignedOfficerId || officerObj.badgeNumber}:EIP712-SIGNED`,
+          },
+        ],
+      };
+
+      const cert = generateBsa63Certificate(targetItem, {
+        name: officerObj.name,
+        badgeNumber: officerObj.badgeNumber,
+        rank: officerObj.rank,
+        agency: officerObj.department,
+      });
+      setActiveCert(cert);
+      setShowCertModal(true);
+      if (onAuditLog) {
+        onAuditLog(`Section 63 BSA 2023 Digital Certificate viewed for Case ${c.id}`, c.id, 'CASE');
+      }
+      return;
+    }
+
+    // 2. Fallback for cases without blockchainProof: match against any available evidence item
+    const matchedEv = uniqueItems.find((item) => item.caseId && item.caseId.toLowerCase() === c.id.toLowerCase());
+    if (matchedEv) {
+      const cert = generateBsa63Certificate(matchedEv, {
+        name: officerObj.name,
+        badgeNumber: officerObj.badgeNumber,
+        rank: officerObj.rank,
+        agency: officerObj.department,
+      });
+      setActiveCert(cert);
+      setShowCertModal(true);
+      if (onAuditLog) {
+        onAuditLog(`Section 63 BSA 2023 Digital Certificate viewed for Case ${c.id}`, c.id, 'CASE');
+      }
     }
   };
 
@@ -453,13 +545,29 @@ export default function CaseManagementModule({
                       className="rounded-none cursor-pointer"
                     />
                   </td>
-                  <td className="p-3 font-bold text-white flex items-center gap-1.5">
-                    <span className="text-neon">{c.id}</span>
-                    {c.linkedCasesCount > 1 && (
-                      <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1 border border-white/10" title={`${c.linkedCasesCount} Linked Cases Detected`}>
-                        +{c.linkedCasesCount}
-                      </span>
-                    )}
+                  <td className="p-3 font-bold text-white">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-neon">{c.id}</span>
+                      {c.linkedCasesCount > 1 && (
+                        <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1 border border-white/10" title={`${c.linkedCasesCount} Linked Cases Detected`}>
+                          +{c.linkedCasesCount}
+                        </span>
+                      )}
+                      {c.blockchainProof && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenJudicialCertificate(c);
+                          }}
+                          title={`Polygon Tx: ${c.blockchainProof.txHash}\nAnchored: ${c.blockchainProof.anchoredAt}\nCertificate: ${c.blockchainProof.certId}`}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-mono font-bold tracking-tight transition-colors cursor-pointer group"
+                        >
+                          <Lock className="w-2.5 h-2.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                          <span>[ 🔒 ANCHORED · BLK #{c.blockchainProof.blockNumber} ]</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 text-zinc-400 text-[10px]">{c.registeredAt}</td>
                   <td className="p-3 text-zinc-200">{c.fraudType}</td>
@@ -512,6 +620,17 @@ export default function CaseManagementModule({
                 <div className="p-1 bg-neon/10 border border-neon text-neon text-xs font-bold px-2">
                   CASE DOSSIER: {activeCase.id}
                 </div>
+                {activeCase.blockchainProof && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenJudicialCertificate(activeCase)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-400 text-[10px] font-mono font-bold tracking-tight transition-colors cursor-pointer"
+                    title={`Polygon Tx: ${activeCase.blockchainProof.txHash}\nAnchored: ${activeCase.blockchainProof.anchoredAt}`}
+                  >
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>[ 🔒 POLYGON BLOCK #{activeCase.blockchainProof.blockNumber} ]</span>
+                  </button>
+                )}
                 {getStatusBadge(activeCase.status)}
                 {getPriorityBadge(activeCase.priority)}
                 <span className="text-zinc-500 text-xs">• NCRP: {activeCase.ncrpAckNumber}</span>
@@ -1049,12 +1168,178 @@ export default function CaseManagementModule({
         isOpen={isPredictModalOpen}
         onClose={() => setIsPredictModalOpen(false)}
         onSaveToCases={handleSaveNewComplaintCase}
+        currentOfficer={currentOfficer || OFFICER_ROLES[currentRole]}
         onBroadcastAlert={(alertText) => {
           if (onAuditLog) {
             onAuditLog(alertText, 'ALERT', 'BROADCAST');
           }
         }}
       />
+
+      {/* 8. SECTION 63 BSA 2023 DIGITAL INTEGRITY CERTIFICATE MODAL */}
+      {showCertModal && activeCert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="bg-[#121212] border border-[#ceff00] w-full max-w-3xl rounded-none max-h-[92vh] flex flex-col shadow-[0_0_40px_rgba(206,255,0,0.15)]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#0c0c0c]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#ceff00]" />
+                <span className="font-mono text-sm font-bold text-white uppercase tracking-wider">
+                  SECTION 63 BSA, 2023 CERTIFICATE // COURTROOM EXHIBIT
+                </span>
+              </div>
+              <button
+                onClick={() => setShowCertModal(false)}
+                className="text-white/60 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Certificate Body (Printable Area) */}
+            <div id="bsa-certificate-printable" className="p-6 overflow-y-auto space-y-5 font-mono text-xs text-white">
+              {/* Institutional Header */}
+              <div className="border border-white/20 p-4 bg-[#090909] text-center space-y-1">
+                <div className="text-[10px] tracking-widest text-[#ceff00] uppercase font-bold">
+                  GOVERNMENT OF INDIA • MINISTRY OF HOME AFFAIRS
+                </div>
+                <div className="text-sm font-bold text-white uppercase tracking-wider">
+                  INDIAN CYBER CRIME COORDINATION CENTRE (I4C)
+                </div>
+                <div className="text-[11px] text-white/70 uppercase">
+                  {activeCert.statutoryTitle}
+                </div>
+                <div className="text-[10px] text-[#ceff00] bg-[#ceff00]/10 inline-block px-2 py-0.5 border border-[#ceff00]/30 mt-1">
+                  STATUTORY PROOF UNDER {activeCert.governingSection.toUpperCase()}
+                </div>
+              </div>
+
+              {/* Certificate Telemetry & QR Code Strip */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-[#0c0c0c] border border-white/10 items-center">
+                <div className="md:col-span-2 space-y-2">
+                  <div>
+                    <span className="text-white/40 text-[10px] block">CERTIFICATE SERIAL NO.</span>
+                    <span className="text-base font-bold text-[#ceff00]">{activeCert.certificateId}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 text-[10px] block">CASE UNIQUE IDENTIFIER</span>
+                    <span className="text-white font-bold">{activeCert.caseId} (NCRP Portal Reference)</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 text-[10px] block">EVIDENCE TITLE & FILE</span>
+                    <span className="text-white/90">{activeCert.title} ({activeCert.fileName} • {activeCert.fileSize})</span>
+                  </div>
+                </div>
+
+                {/* Inline SVG QR Code */}
+                <div className="flex flex-col items-center justify-center p-2 bg-black border border-white/10">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: activeCert.qrCodeSvg }}
+                    className="w-32 h-32 flex items-center justify-center"
+                  />
+                  <span className="text-[9px] text-[#ceff00] mt-1 font-mono tracking-wider text-center">
+                    SCAN FOR JUDICIAL PROOF
+                  </span>
+                </div>
+              </div>
+
+              {/* Cryptographic Proof Details */}
+              <div className="p-4 bg-[#0e0e0e] border border-white/10 space-y-2">
+                <div className="text-[11px] font-bold text-[#ceff00] uppercase flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5" />
+                  <span>CRYPTOGRAPHIC & ON-CHAIN PROOFS</span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div>
+                    <span className="text-white/40 block text-[10px]">SHA-256 CRYPTOGRAPHIC DIGEST (INVARIABLE)</span>
+                    <span className="text-white font-mono break-all bg-black/60 p-1.5 border border-white/5 block select-all">
+                      {activeCert.sha256Hash}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <span className="text-white/40 block text-[10px]">POLYGON AMOY BLOCK HEIGHT</span>
+                      <span className="text-[#ceff00] font-bold">#{activeCert.polygonBlockNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block text-[10px]">IPFS CIPHERTEXT CID</span>
+                      <span className="text-white/80 font-mono truncate block" title={activeCert.ipfsCid}>
+                        {activeCert.ipfsCid}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-white/40 block text-[10px]">BLOCKCHAIN TRANSACTION HASH</span>
+                    <a
+                      href={getPolygonScanTxUrl(activeCert.blockchainTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#ceff00] hover:underline truncate block font-mono text-[10px] flex items-center gap-1"
+                    >
+                      <span>{activeCert.blockchainTxHash}</span>
+                      <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statutory Declaration */}
+              <div className="p-4 bg-black/50 border border-white/10 space-y-2">
+                <div className="text-[10px] text-white/40 uppercase font-bold">
+                  STATUTORY DECLARATION UNDER SECTION 63(4) BHARATIYA SAKSHYA ADHINIYAM, 2023
+                </div>
+                <p className="text-[11px] text-white/80 whitespace-pre-line leading-relaxed">
+                  {activeCert.statutoryDeclaration}
+                </p>
+              </div>
+
+              {/* Certifying Officer Seal */}
+              <div className="p-3 bg-[#0c0c0c] border border-white/10 flex flex-wrap items-center justify-between gap-2 text-[10px] text-white/60">
+                <div>
+                  SIGNING OFFICER: <strong className="text-white">{activeCert.certifyingOfficer.name}</strong> ({activeCert.certifyingOfficer.badgeNumber})
+                </div>
+                <div>
+                  AGENCY: <span className="text-white/80">{activeCert.certifyingOfficer.agency}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer with Print and External Link */}
+            <div className="p-4 border-t border-white/10 bg-[#0c0c0c] flex items-center justify-between gap-3">
+              <a
+                href={getPolygonScanTxUrl(activeCert.blockchainTxHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#ceff00] hover:underline flex items-center gap-1"
+              >
+                <span>Verify on PolygonScan Explorer</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (typeof window !== 'undefined') window.print();
+                  }}
+                  className="px-3.5 py-1.5 bg-[#ceff00] hover:bg-[#b8e600] text-black font-bold uppercase text-xs rounded-none flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Certificate</span>
+                </button>
+                <button
+                  onClick={() => setShowCertModal(false)}
+                  className="px-3.5 py-1.5 border border-white/20 text-xs font-mono text-white hover:bg-white/5 rounded-none uppercase cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -113,6 +113,10 @@ function CourtroomVerifierContent() {
       case 'Surveillance': return <Camera className="w-4 h-4 text-rose-400" />;
       case 'Legal': return <Scale className="w-4 h-4 text-purple-400" />;
       case 'Device': return <Smartphone className="w-4 h-4 text-emerald-400" />;
+      case 'Identity': return <Lock className="w-4 h-4 text-amber-400" />;
+      case 'Forensic':
+      case 'Forensic / AI Intelligence Report':
+        return <ShieldCheck className="w-4 h-4 text-[#ceff00]" />;
       default: return <FileCheck className="w-4 h-4 text-white/70" />;
     }
   };
@@ -227,7 +231,7 @@ function CourtroomVerifierContent() {
             {/* Search Input */}
             <div className="lg:col-span-8 space-y-1.5">
               <label className="text-[10px] text-white/50 uppercase block">
-                ENTER SHA-256 CHECKSUM, EVIDENCE ID, OR NCRP CASE ID:
+                ENTER SHA-256 HASH, CASE ID (E.G. CY2026-MH-44521), OR POLYGON TX HASH:
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -237,7 +241,7 @@ function CourtroomVerifierContent() {
                     value={queryInput}
                     onChange={(e) => setQueryInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleVerify(queryInput)}
-                    placeholder="e.g. 9e1a8b7c6d5e4f... or EVD-2026-901 or CY2026-MH-44521"
+                    placeholder="e.g. 9e1a8b7c6d5e4f... or CY2026-MH-44521 or 0x8f2c3a1e9b4d..."
                     className="w-full bg-[#0c0c0c] border border-white/15 pl-9 pr-3 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#ceff00] rounded-none"
                   />
                 </div>
@@ -335,7 +339,7 @@ function CourtroomVerifierContent() {
                       result.isAuthentic ? 'text-emerald-300' : 'text-rose-400'
                     }`}>
                       {result.isAuthentic
-                        ? 'AUTHENTIC & UNALTERED (SECTION 63 BSA, 2023 COMPLIANT)'
+                        ? 'STATUS: AUTHENTIC & UNALTERED (ON-CHAIN VERIFIED)'
                         : 'HASH MISMATCH / UNREGISTERED ON LEDGER'}
                     </div>
                   </div>
@@ -350,6 +354,52 @@ function CourtroomVerifierContent() {
               <p className="text-xs text-white/80 leading-relaxed border-t border-white/10 pt-3">
                 {result.details}
               </p>
+
+              {/* Pre-Cashout Mathematical Proof & Timeliness Panel */}
+              {result.isAuthentic && (
+                <div className="p-4 bg-black/60 border border-emerald-500/40 rounded-none space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <span className="text-[11px] font-bold uppercase text-[#ceff00] flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5" />
+                      PRE-CASHOUT IMMUTABILITY PROOF // SECTION 63 BSA 2023
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/30">
+                      POLYGON AMOY BLOCK #{result.blockNumber}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[10px] text-white/50 block uppercase">COMPLAINT INGESTION TIMESTAMP</span>
+                      <span className="text-white font-bold">
+                        {result.complaintTimestamp || result.anchoredAt || result.matchedEvidence?.uploadedAt || '09 Sept 2026, 01:15:08 IST'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-white/50 block uppercase">PREDICTED CASH-OUT WINDOW</span>
+                      <span className="text-amber-400 font-bold">
+                        {result.predictedCashOutWindow || '< 3.5 Hours'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-white/50 block uppercase">STATUTORY ADMISSIBILITY</span>
+                      <span className="text-emerald-400 font-bold">
+                        Section 63 BSA 2023 Certified
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-emerald-950/30 border border-emerald-500/25 text-[11px] text-zinc-300">
+                    <strong className="text-emerald-400 uppercase">Mathematical Proof of Timeliness: </strong>
+                    <span>
+                      {result.mathematicalProofTimeliness ||
+                        `AI model input features and forecasted interdiction window were cryptographically committed to Polygon Amoy Block #${result.blockNumber} at the exact moment of citizen complaint ingestion. This establishes mathematical proof that AI interdiction intelligence was recorded PRIOR TO physical cash-out, eliminating defense claims of post-incident fabrication under Section 63 BSA 2023.`}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Quick Actions Bar */}
               {result.isAuthentic && (

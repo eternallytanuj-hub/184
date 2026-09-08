@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
   X, Sparkles, Send, AlertTriangle, Shield, CheckCircle2, 
   Clock, MapPin, Building, ArrowRight, BarChart3, Info, 
-  TrendingUp, RefreshCw, Layers, ExternalLink, Zap
+  TrendingUp, RefreshCw, Layers, ExternalLink, Zap, Lock, ShieldCheck
 } from 'lucide-react';
 import { 
   predictWithdrawal, 
@@ -13,13 +13,20 @@ import {
   PredictionResponse, 
   SHAPExplanation 
 } from '@/lib/apiService';
-import { CaseEntity, CaseStatus, PriorityLevel } from '@/data/collabData';
+import { CaseEntity, CaseStatus, PriorityLevel, OfficerProfile } from '@/data/collabData';
+import {
+  calculateSha256,
+  anchorEvidenceToLedger,
+  getPolygonScanTxUrl,
+  AnchorResult
+} from '@/lib/blockchain/evidenceLedger';
 
 interface ComplaintPredictorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveToCases?: (newCase: CaseEntity) => void;
   onBroadcastAlert?: (alertText: string) => void;
+  currentOfficer?: OfficerProfile;
 }
 
 const PRESET_TEMPLATES: Array<{
@@ -89,6 +96,7 @@ export default function ComplaintPredictorModal({
   onClose,
   onSaveToCases,
   onBroadcastAlert,
+  currentOfficer,
 }: ComplaintPredictorModalProps) {
   const [formData, setFormData] = useState<ComplaintInput>(PRESET_TEMPLATES[0].data);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -97,6 +105,12 @@ export default function ComplaintPredictorModal({
   const [activeTab, setActiveTab] = useState<'prediction' | 'shap'>('prediction');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [alertSuccess, setAlertSuccess] = useState(false);
+
+  // Blockchain Ledger Anchoring State (Section 63 BSA 2023)
+  const [isBlockchainAnchoringEnabled, setIsBlockchainAnchoringEnabled] = useState(true);
+  const [anchoringStep, setAnchoringStep] = useState<number>(0); // 0: idle, 1: hashing, 2: relayer, 3: confirmed
+  const [anchoredProof, setAnchoredProof] = useState<AnchorResult | null>(null);
+  const [manifestData, setManifestData] = useState<any | null>(null);
 
   if (!isOpen) return null;
 
@@ -109,6 +123,9 @@ export default function ComplaintPredictorModal({
     setShap(null);
     setSavedSuccess(false);
     setAlertSuccess(false);
+    setAnchoredProof(null);
+    setManifestData(null);
+    setAnchoringStep(0);
   };
 
   const handleRunAnalysis = async (e: React.FormEvent) => {
@@ -116,6 +133,9 @@ export default function ComplaintPredictorModal({
     setIsAnalyzing(true);
     setSavedSuccess(false);
     setAlertSuccess(false);
+    setAnchoredProof(null);
+    setManifestData(null);
+    setAnchoringStep(0);
 
     try {
       const pred = await predictWithdrawal(formData);
@@ -123,8 +143,113 @@ export default function ComplaintPredictorModal({
       setPrediction(pred);
       setShap(shapResult);
       setActiveTab('prediction');
+
+      if (isBlockchainAnchoringEnabled) {
+        // Step 1/3: Calculating SHA-256 Manifest Digest...
+        setAnchoringStep(1);
+
+        const caseId = pred.complaint_id || formData.complaint_id;
+        const topState = pred.top_predicted_states[0]?.state || formData.victim_state;
+        const facility = pred.zone_prediction.predicted_zone.includes('Counter') || pred.zone_prediction.predicted_zone.includes('Branch')
+          ? 'Bank_Branch_Counter'
+          : 'Urban_ATM';
+
+        const officerName = currentOfficer?.name || 'Dr. A. K. Saxena';
+        const officerBadge = currentOfficer?.badgeNumber || 'I4C-DIR-01';
+        const officerRank = currentOfficer?.rank || 'Joint Director (Cyber Defense)';
+
+        // Cryptographic Manifest bundling Complaint Vector + AI Prediction + SHAP + Officer Provenance
+        const manifest = {
+          manifestVersion: '1.0-BSA2023',
+          caseId,
+          complaintVector: {
+            complaintId: caseId,
+            submissionTimestamp: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST',
+            fraudTaxonomy: formData.fraud_type,
+            defraudedAmount: formData.amount_stolen_inr,
+            victimJurisdiction: formData.victim_state,
+            victimDistrict: formData.victim_district || 'District Police HQ',
+            muleBank: formData.mule_account_bank || 'SBI',
+            muleState: formData.mule_account_state || topState,
+          },
+          aiInferenceOutput: {
+            primaryPredictedState: topState,
+            confidenceScore: pred.top_predicted_states[0]?.probability || 0.85,
+            extractionFacility: facility,
+            hierarchyStage: pred.zone_prediction.hierarchy_stage,
+            estimatedInterdictionWindowHours: pred.estimated_time_window_hours,
+            timeUrgency: pred.time_urgency,
+          },
+          shapAttributionFactors: (shapResult.topFactors || []).map((f) => ({
+            feature: f.feature,
+            value: f.value,
+            impactPercentage: f.impactPercentage,
+            direction: f.direction,
+            description: f.description,
+          })),
+          officerProvenance: {
+            officerName,
+            badgeNumber: officerBadge,
+            rank: officerRank,
+            terminalId: 'I4C-CONSOLE-SECURE-01',
+            gpsStationStamp: '28.6139° N, 77.2090° E (National Cyber Command)',
+          },
+        };
+
+        setManifestData(manifest);
+        const manifestJson = JSON.stringify(manifest, null, 2);
+        const manifestHash = await calculateSha256(manifestJson);
+
+        // Step 2/3: Submitting EIP-712 Meta-Transaction to Polygon Amoy...
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        setAnchoringStep(2);
+
+        await new Promise((resolve) => setTimeout(resolve, 400));
+
+        // Step 3/3: Mining confirmation & ledger entry
+        const anchorResult = await anchorEvidenceToLedger(
+          {
+            caseId,
+            title: 'AI Predictive Interdiction & Complaint Dossier',
+            category: 'Forensic / AI Intelligence Report',
+            type: 'json',
+            fileName: `${caseId}_prediction_manifest.json`,
+            fileSize: `${(new TextEncoder().encode(manifestJson).length / 1024).toFixed(1)} KB`,
+            sha256Hash: manifestHash,
+            relevance: 'Primary',
+            source: 'AI-detected',
+            confidentiality: 'Restricted',
+            ocrExtractedText: `AI PREDICTION MANIFEST (${caseId})\nPrimary Predicted State: ${topState}\nInterdiction Window: < ${pred.estimated_time_window_hours} Hours\nFacility: ${facility}\nAmount: ₹${formData.amount_stolen_inr.toLocaleString('en-IN')}`,
+            chainOfCustody: [
+              {
+                timestamp: new Date().toLocaleTimeString('en-GB') + ' IST',
+                officerName,
+                action: '[COMPLAINT_INGESTED_AND_AI_PREDICTED]',
+                purpose: 'Section 63 BSA 2023 Immutability Lock for AI Prediction',
+                digitalSignature: `${officerBadge}:EIP712-SIGNED`,
+              },
+            ],
+          },
+          {
+            name: officerName,
+            badgeNumber: officerBadge,
+            rank: officerRank,
+            agency: 'Indian Cyber Crime Coordination Centre (I4C), MHA',
+          }
+        );
+
+        setAnchoringStep(3);
+        setAnchoredProof(anchorResult);
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('cybercast_evidence_anchored', { detail: anchorResult.evidenceItem })
+          );
+        }
+      }
     } catch (err) {
-      console.error('Prediction failed:', err);
+      console.error('Prediction or blockchain anchoring failed:', err);
+      setAnchoringStep(0);
     } finally {
       setIsAnalyzing(false);
     }
@@ -152,11 +277,19 @@ export default function ComplaintPredictorModal({
       suspectedWithdrawalZone: `${prediction.zone_prediction.predicted_zone} Cluster`,
       status,
       priority,
-      assignedOfficerId: 'OFF-I4C-AUTO',
-      assignedOfficerName: 'I4C Command Dispatch',
+      assignedOfficerId: currentOfficer?.id || 'OFF-I4C-AUTO',
+      assignedOfficerName: currentOfficer?.name || 'I4C Command Dispatch',
       lastUpdated: 'Just now',
       linkedCasesCount: 1,
       sourceOfComplaint: 'NCRP Portal',
+      blockchainProof: anchoredProof ? {
+        txHash: anchoredProof.blockchainTxHash,
+        blockNumber: anchoredProof.polygonBlockNumber,
+        certId: anchoredProof.bsa63CertificateId,
+        anchoredAt: anchoredProof.anchoredAt,
+        manifestCid: anchoredProof.ipfsCid,
+        manifestHash: anchoredProof.evidenceItem.sha256Hash,
+      } : undefined,
       victim: {
         name: 'Reported Complainant (NCRP)',
         maskedName: 'R******* C**********',
@@ -167,7 +300,7 @@ export default function ComplaintPredictorModal({
         accountMasked: 'A/C XXXX-9102',
         summaryText: `Complainant reported unauthorized debit of ₹${formData.amount_stolen_inr.toLocaleString('en-IN')} via ${formData.fraud_type}. Transferred into mule account in ${formData.mule_account_state || topState}.`,
       },
-      aiSummary: `Live ML Model (FastAPI v3.0.0) projected withdrawal in ${topState} (${prediction.zone_prediction.predicted_zone}) with ${prediction.estimated_time_window_hours}h time window. Urgency: ${prediction.time_urgency}.`,
+      aiSummary: `Live ML Model (FastAPI v3.0.0) projected withdrawal in ${topState} (${prediction.zone_prediction.predicted_zone}) with ${prediction.estimated_time_window_hours}h time window. Urgency: ${prediction.time_urgency}.${anchoredProof ? ` Anchored to Polygon Amoy Block #${anchoredProof.polygonBlockNumber} (Tx: ${anchoredProof.blockchainTxHash.substring(0, 10)}...).` : ''}`,
       predictedZone: `${prediction.zone_prediction.predicted_zone} Cluster`,
       predictedTimeWindow: `${prediction.estimated_time_window_hours} Hours`,
       confidenceScore: Math.round((prediction.top_predicted_states[0]?.probability || 0.8) * 100),
@@ -198,9 +331,9 @@ export default function ComplaintPredictorModal({
       actionLog: [
         {
           timestamp: new Date().toLocaleTimeString('en-GB') + ' IST',
-          officerName: 'Live ML Model (FastAPI v3.0.0)',
+          officerName: currentOfficer?.name || 'Live ML Model (FastAPI v3.0.0)',
           role: 'Autonomous Inference Pipeline',
-          action: `Automated predictive triage completed (${prediction.processing_latency_ms.toFixed(1)}ms)`,
+          action: `Automated predictive triage completed (${prediction.processing_latency_ms.toFixed(1)}ms)${anchoredProof ? ` • Polygon Block #${anchoredProof.polygonBlockNumber}` : ''}`,
           outcome: `Predicted cash-out state ${topState} with ${prediction.zone_prediction.predicted_zone} classification`,
         }
       ],
@@ -245,12 +378,28 @@ export default function ComplaintPredictorModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1 text-zinc-400 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setIsBlockchainAnchoringEnabled(!isBlockchainAnchoringEnabled)}
+              className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold tracking-wider uppercase border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                isBlockchainAnchoringEnabled
+                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                  : 'bg-zinc-800 border-white/20 text-zinc-400'
+              }`}
+              title="Section 63 Bharatiya Sakshya Adhiniyam, 2023 Statutory Proof"
+            >
+              <Lock className="h-3 w-3 text-emerald-400" />
+              <span>[ 🔒 IMMUTABLE BSA 2023 LEDGER ANCHORING: {isBlockchainAnchoringEnabled ? 'ENABLED' : 'DISABLED'} ]</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-1 text-zinc-400 hover:text-white border border-white/10 hover:border-white/30 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* MODAL CONTENT: TWO-COLUMN LAYOUT */}
@@ -433,7 +582,7 @@ export default function ComplaintPredictorModal({
                 {isAnalyzing ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin text-black" />
-                    <span>QUERYING RAILWAY ML ENGINE...</span>
+                    <span>{anchoringStep > 0 ? 'ANCHORING TO POLYGON AMOY...' : 'QUERYING RAILWAY ML ENGINE...'}</span>
                   </>
                 ) : (
                   <>
@@ -463,7 +612,7 @@ export default function ComplaintPredictorModal({
               </div>
             )}
 
-            {isAnalyzing && (
+            {isAnalyzing && !prediction && (
               <div className="h-full min-h-[360px] flex flex-col items-center justify-center text-center p-6">
                 <div className="relative mb-4">
                   <div className="h-10 w-10 border-2 border-neon border-t-transparent animate-spin" />
@@ -477,12 +626,69 @@ export default function ComplaintPredictorModal({
                   <div>[2/4] Classifying ATM Zone Subtype (Hierarchy Stage 1 & 2)...</div>
                   <div>[3/4] Estimating Critical Cash-out Window...</div>
                   <div>[4/4] Generating Shapley Feature Explanations...</div>
+                  {isBlockchainAnchoringEnabled && anchoringStep > 0 && (
+                    <div className="pt-2 border-t border-white/10 space-y-1 text-emerald-400 font-bold">
+                      {anchoringStep === 1 && <div>1/3 Calculating SHA-256 Manifest Digest...</div>}
+                      {anchoringStep === 2 && <div>2/3 Submitting EIP-712 Meta-Transaction to Polygon Amoy...</div>}
+                      {anchoringStep === 3 && <div>3/3 Polygon Amoy Block Confirmed</div>}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {prediction && (
               <div className="space-y-4">
+                
+                {/* 3-STEP BLOCKCHAIN MICRO-TELEMETRY TICKER */}
+                {anchoringStep > 0 && (
+                  <div className="p-3 bg-[#111] border border-white/15 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] uppercase font-bold text-zinc-400 border-b border-white/10 pb-1.5">
+                      <span className="flex items-center gap-1.5 text-neon">
+                        <Lock className="w-3 h-3 text-emerald-400" />
+                        POLYGON AMOY EIP-712 GASLESS ANCHORING // SECTION 63 BSA 2023
+                      </span>
+                      <span className="text-emerald-400 font-mono">CHAIN ID: 80002</span>
+                    </div>
+
+                    <div className="font-mono text-xs space-y-1">
+                      {anchoringStep === 1 && (
+                        <div className="flex items-center gap-2 text-neon">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>1/3 Calculating SHA-256 Manifest Digest...</span>
+                        </div>
+                      )}
+                      {anchoringStep === 2 && (
+                        <div className="flex items-center gap-2 text-amber-400">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>2/3 Submitting EIP-712 Meta-Transaction to Polygon Amoy...</span>
+                        </div>
+                      )}
+                      {anchoringStep === 3 && anchoredProof && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-emerald-400">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                            <span className="font-bold">
+                              3/3 Block #{anchoredProof.polygonBlockNumber} Confirmed — Tx: {anchoredProof.blockchainTxHash.substring(0, 14)}...
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[10px]">
+                            <span className="text-zinc-400">BSA CERT: {anchoredProof.bsa63CertificateId}</span>
+                            <a
+                              href={getPolygonScanTxUrl(anchoredProof.blockchainTxHash)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#ceff00] hover:underline flex items-center gap-1 font-mono"
+                            >
+                              <span>PolygonScan</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 {/* SUB-HEADER: TABS (Prediction vs SHAP) */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-2">
@@ -677,7 +883,7 @@ export default function ComplaintPredictorModal({
                       className="px-3 py-1.5 bg-neon hover:bg-[#b8e600] disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-bold text-xs uppercase flex items-center gap-1.5 transition-colors"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>{savedSuccess ? 'INGESTED INTO DOSSIER ✓' : 'INGEST INTO CASE DOSSIER'}</span>
+                      <span>{savedSuccess ? 'DOSSIER DISPATCHED & ANCHORED ✓' : '[ SAVE & DISPATCH TO ACTIVE DOSSIER ]'}</span>
                     </button>
 
                     <button

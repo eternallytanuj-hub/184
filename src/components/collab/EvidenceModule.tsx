@@ -112,25 +112,47 @@ export default function EvidenceModule({ currentOfficer, onAuditLog }: EvidenceM
     autoAnchor: true,
   });
 
-  // Sync any newly anchored evidence from localStorage on mount
+  // Sync any newly anchored evidence from localStorage on mount and reactive events
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('cybercast_blockchain_ledger');
-        if (stored) {
-          const parsed = JSON.parse(stored) as EvidenceItem[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEvidenceList((prev) => {
-              const ids = new Set(prev.map((i) => i.id));
-              const extras = parsed.filter((p) => !ids.has(p.id));
-              return [...extras, ...prev];
-            });
+    const syncFromStorage = () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('cybercast_blockchain_ledger');
+          if (stored) {
+            const parsed = JSON.parse(stored) as EvidenceItem[];
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setEvidenceList((prev) => {
+                const ids = new Set(prev.map((i) => i.id));
+                const extras = parsed.filter((p) => !ids.has(p.id));
+                return [...extras, ...prev];
+              });
+            }
           }
+        } catch (err) {
+          console.warn('Failed to hydrate blockchain ledger state:', err);
         }
-      } catch (err) {
-        console.warn('Failed to hydrate blockchain ledger state:', err);
       }
-    }
+    };
+
+    syncFromStorage();
+
+    const handleNewEvidence = (e: any) => {
+      if (e?.detail) {
+        setEvidenceList((prev) => {
+          if (prev.some((item) => item.id === e.detail.id)) return prev;
+          return [e.detail, ...prev];
+        });
+      } else {
+        syncFromStorage();
+      }
+    };
+
+    window.addEventListener('cybercast_evidence_anchored', handleNewEvidence);
+    window.addEventListener('storage', syncFromStorage);
+    return () => {
+      window.removeEventListener('cybercast_evidence_anchored', handleNewEvidence);
+      window.removeEventListener('storage', syncFromStorage);
+    };
   }, []);
 
   const categories = [
@@ -138,6 +160,7 @@ export default function EvidenceModule({ currentOfficer, onAuditLog }: EvidenceM
     { id: 'Communication', label: 'Communications & Chat' },
     { id: 'Financial', label: 'Financial & CFCFRMS' },
     { id: 'Surveillance', label: 'CCTV & Surveillance' },
+    { id: 'Forensic / AI Intelligence Report', label: 'Forensic & AI Reports' },
     { id: 'Legal', label: 'FIR & Judicial' },
     { id: 'Device', label: 'Device & Hardware' },
     { id: 'Identity', label: 'Identity & KYC' },
@@ -378,6 +401,9 @@ export default function EvidenceModule({ currentOfficer, onAuditLog }: EvidenceM
       case 'Legal': return <Scale className="w-4 h-4 text-purple-400" />;
       case 'Device': return <Smartphone className="w-4 h-4 text-emerald-400" />;
       case 'Identity': return <Lock className="w-4 h-4 text-amber-400" />;
+      case 'Forensic':
+      case 'Forensic / AI Intelligence Report':
+        return <ShieldCheck className="w-4 h-4 text-[#ceff00]" />;
       default: return <FileCheck2 className="w-4 h-4 text-white/70" />;
     }
   };
@@ -531,7 +557,7 @@ export default function EvidenceModule({ currentOfficer, onAuditLog }: EvidenceM
           </div>
         ) : (
           filteredEvidence.map((ev) => {
-            const isVerified = verifiedHashes[ev.id] ?? false;
+            const isVerified = (verifiedHashes[ev.id] ?? false) || ev.ledgerStatus === 'ANCHORED';
             const isVerifying = verifyingHashId === ev.id;
             const isAnchored = ev.ledgerStatus === 'ANCHORED';
             const isAnchoring = anchoringId === ev.id;

@@ -187,6 +187,16 @@ export interface CaseEntity {
     location?: string;
     outcome: string;
   }[];
+
+  // Blockchain & Section 63 BSA 2023 Proof
+  blockchainProof?: {
+    txHash: string;
+    blockNumber: number;
+    certId: string;
+    anchoredAt: string;
+    manifestCid?: string;
+    manifestHash?: string;
+  };
 }
 
 export const CASES_DATA: CaseEntity[] = [
@@ -209,6 +219,14 @@ export const CASES_DATA: CaseEntity[] = [
     lastUpdated: '10 mins ago',
     linkedCasesCount: 4,
     sourceOfComplaint: 'Helpline 1930',
+    blockchainProof: {
+      txHash: '0x8f2c3a1e9b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
+      blockNumber: 14892015,
+      certId: 'BSA-63-2026-MH-8812',
+      anchoredAt: '05 Sept 2026, 11:42:19 IST',
+      manifestCid: 'QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx',
+      manifestHash: '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a',
+    },
     victim: {
       name: 'Sunita Deshmukh',
       maskedName: 'S***** D*******',
@@ -673,8 +691,8 @@ export interface EvidenceItem {
   id: string;
   caseId: string;
   title: string;
-  category: 'Communication' | 'Financial' | 'Identity' | 'Device' | 'Surveillance' | 'Legal';
-  type: 'image' | 'pdf' | 'audio' | 'video';
+  category: 'Communication' | 'Financial' | 'Identity' | 'Device' | 'Surveillance' | 'Legal' | 'Forensic' | 'Forensic / AI Intelligence Report';
+  type: 'image' | 'pdf' | 'audio' | 'video' | 'json';
   fileName: string;
   fileSize: string;
   uploadedAt: string;
