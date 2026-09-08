@@ -71,14 +71,6 @@ export default function DashboardPage() {
   // Mobile / Tablet Tab State ('map' | 'layers' | 'intelligence')
   const [mobileTab, setMobileTab] = useState<'map' | 'layers' | 'intelligence'>('map');
 
-  // Trigger one-time realistic critical alert demonstration after 4 seconds
-  useEffect(() => {
-    const alertTimer = setTimeout(() => {
-      setCriticalAlertOpen(true);
-    }, 4500);
-    return () => clearTimeout(alertTimer);
-  }, []);
-
   // Timeline playback loop
   useEffect(() => {
     if (!isPlayingTimeline) return;
