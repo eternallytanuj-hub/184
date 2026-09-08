@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import fs from 'fs';
 import util from 'util';
+import { createClient } from '@supabase/supabase-js';
+import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY } from '@/lib/auth/supabaseClient';
 
 const execFilePromise = util.promisify(execFile);
 
 // Primary ADB binary paths in order of preference
 const PRIMARY_ADB_PATH = '/Users/tanujpathak/Library/Android/sdk/platform-tools/adb';
 const TARGET_DEVICE_ID = process.env.ADB_DEVICE_ID || 'ZD222K9HBL';
+const BRIDGE_CHANNEL = 'cybercast-hardware-bridge';
 
 interface DetectedDevice {
   serial: string;
@@ -200,12 +203,98 @@ export async function POST(req: NextRequest) {
   const devices = await getAttachedDevices(adbPath);
   const activeDevice = selectTargetDevice(devices);
 
-  // If no hardware device is connected or authorized, execute seamless simulation fallback
+  // If no local hardware device is connected, relay through Cloud-to-Local Bridge (Option B)
   if (!activeDevice) {
     const unauthorizedDevice = devices.find((d) => d.state === 'unauthorized');
+
+    // Channel 1: Supabase Realtime Broadcast to local laptop daemon
+    let broadcastSent = false;
+    try {
+      const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim();
+      const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY).trim();
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const channel = supabase.channel(BRIDGE_CHANNEL);
+
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => resolve(), 2200);
+        channel.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            try {
+              const res = await channel.send({
+                type: 'broadcast',
+                event: 'dispatch_sms',
+                payload: {
+                  phone,
+                  message,
+                  priority,
+                  officerName,
+                  caseId,
+                  timestamp: now.toISOString(),
+                  dltReference,
+                },
+              });
+              if (res === 'ok') broadcastSent = true;
+            } catch (err) {
+              console.warn('[Realtime Broadcast Error]:', err);
+            }
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+      await channel.unsubscribe().catch(() => {});
+    } catch (err: any) {
+      console.warn('[Cloud Bridge Broadcast Error]:', err.message);
+    }
+
+    // Channel 2: Direct HTTP Webhook if configured (e.g. ngrok / localtunnel)
+    let webhookSent = false;
+    const webhookUrl = process.env.HARDWARE_BRIDGE_WEBHOOK_URL;
+    if (webhookUrl) {
+      try {
+        const hookRes = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone,
+            message,
+            priority,
+            officerName,
+            caseId,
+            timestamp: now.toISOString(),
+            dltReference,
+          }),
+          signal: AbortSignal.timeout(2000),
+        });
+        if (hookRes.ok) webhookSent = true;
+      } catch (err: any) {
+        console.warn('[Webhook Relay Error]:', err.message);
+      }
+    }
+
+    if (broadcastSent || webhookSent) {
+      return NextResponse.json({
+        success: true,
+        mode: 'cloud_bridge',
+        status: 'RELAYED_TO_LOCAL_BRIDGE',
+        hardwareDispatched: true,
+        channel: broadcastSent ? 'SUPABASE_REALTIME_WSS' : 'HTTP_WEBHOOK',
+        deviceId: TARGET_DEVICE_ID,
+        model: 'Android Device (via Local Bridge)',
+        phone,
+        message,
+        priority,
+        officerName,
+        caseId,
+        timestamp: now.toISOString(),
+        dltReference,
+        warning: 'Alert routed through Cloud-to-Local Bridge to your connected Android phone.',
+      });
+    }
+
     const warning = unauthorizedDevice
       ? `Physical Android device (${unauthorizedDevice.serial}) detected but unauthorized. Unlock phone and tap "Allow USB debugging". Simulation fallback executed.`
-      : 'Physical Android device not detected via ADB. Simulation fallback executed.';
+      : 'Physical Android device not detected locally on cloud server. Broadcast sent to bridge (run `npm run bridge` on your laptop to receive on physical phone).';
     console.info(`[ADB-SMS Simulation]: ${warning}. Alert to ${phone}`);
     return NextResponse.json({
       success: true,

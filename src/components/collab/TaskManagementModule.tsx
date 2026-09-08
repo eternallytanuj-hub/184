@@ -186,9 +186,13 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
       id: toastId,
       title: result.mode === 'hardware'
         ? `HARDWARE SMS TRANSMITTED: ${task.assignedOfficerName} (${targetPhone})`
+        : result.mode === 'cloud_bridge'
+        ? `CLOUD BRIDGE SMS RELAYED: ${task.assignedOfficerName} (${targetPhone})`
         : `SIMULATED SMS TRANSMITTED: ${task.assignedOfficerName} (${targetPhone})`,
       subtitle: result.mode === 'hardware'
         ? `Direct Android Intent launched on physical device ${result.deviceId || 'ZD222K9HBL'} (${result.model || 'Android'}). DLT Ref #${result.dltReference}.`
+        : result.mode === 'cloud_bridge'
+        ? `Dispatched via Cloud-to-Local Bridge to physical device ${result.deviceId || 'ZD222K9HBL'}. DLT Ref #${result.dltReference}.`
         : `Encrypted directive dispatched via fallback simulation trunk. DLT Ref #${result.dltReference}.`,
     });
 
@@ -234,9 +238,13 @@ export default function TaskManagementModule({ currentOfficer, onAuditLog }: Tas
       id: toastId,
       title: result.mode === 'hardware'
         ? `POLICE ALERT SMS TRANSMITTED: ${targetOfficer} (${targetPhone})`
+        : result.mode === 'cloud_bridge'
+        ? `CLOUD BRIDGE SMS RELAYED: ${targetOfficer} (${targetPhone})`
         : `SIMULATED POLICE ALERT SMS: ${targetOfficer} (${targetPhone})`,
       subtitle: result.mode === 'hardware'
         ? `Live SMS app popup launched on physical device ${result.deviceId || 'ZD222K9HBL'} (${result.model || 'Android'}). DLT Ref #${result.dltReference}.`
+        : result.mode === 'cloud_bridge'
+        ? `Relayed via Cloud-to-Local Bridge to physical device ${result.deviceId || 'ZD222K9HBL'}. DLT Ref #${result.dltReference}.`
         : `Encrypted directive sent via DLT Trunk (1407/POLICE-FLASH). Reference #${result.dltReference}.`,
     });
 

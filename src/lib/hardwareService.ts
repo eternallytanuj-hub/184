@@ -5,7 +5,7 @@
 
 export interface AdbDeviceStatus {
   connected: boolean;
-  mode: 'hardware' | 'simulation';
+  mode: 'hardware' | 'simulation' | 'cloud_bridge';
   unauthorized?: boolean;
   deviceState?: string;
   deviceId: string | null;
@@ -13,6 +13,8 @@ export interface AdbDeviceStatus {
   adbPath?: string;
   targetConfigured?: string;
   warning?: string;
+  cloudBridgeSupported?: boolean;
+  bridgeChannel?: string;
   timestamp: string;
 }
 
@@ -26,9 +28,10 @@ export interface AdbSmsPayload {
 
 export interface AdbSmsResponse {
   success: boolean;
-  mode: 'hardware' | 'simulation';
+  mode: 'hardware' | 'simulation' | 'cloud_bridge';
   status: string;
   hardwareDispatched?: boolean;
+  channel?: string;
   deviceId: string | null;
   model?: string | null;
   phone: string;
