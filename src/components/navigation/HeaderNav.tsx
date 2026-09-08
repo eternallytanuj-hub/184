@@ -212,33 +212,9 @@ export default function HeaderNav() {
             </div>
           </div>
 
-          {/* Center Navigation Group matching spur.us */}
+          {/* Center Navigation Group */}
           <nav className="hidden lg:flex items-center gap-1">
             <span className="h-1.5 w-1.5 bg-neon mr-1.5" />
-            <Link href="#problem" className="nav-link-tech">
-              THE PROBLEM
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
-            <Link href="#solution" className="nav-link-tech">
-              OUR SOLUTION
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
-            <Link href="#features" className="nav-link-tech">
-              KEY FEATURES
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
-            <Link href="#how-it-works" className="nav-link-tech">
-              HOW IT WORKS
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
-            <Link href="#impact" className="nav-link-tech">
-              IMPACT
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
-            <Link href="#ecosystem" className="nav-link-tech">
-              ECOSYSTEM
-            </Link>
-            <span className="text-zinc-700 text-xs select-none">/</span>
             <Link href="/collab" className="nav-link-tech text-neon font-bold">
               REPORT & COLLAB
             </Link>
@@ -297,48 +273,6 @@ export default function HeaderNav() {
         <div className="lg:hidden bg-[#0c0c0c] border-b border-white/10 px-6 py-6 space-y-4">
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
             <Link
-              href="#problem"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ THE PROBLEM ]
-            </Link>
-            <Link
-              href="#solution"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ OUR SOLUTION ]
-            </Link>
-            <Link
-              href="#features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ KEY FEATURES ]
-            </Link>
-            <Link
-              href="#how-it-works"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ HOW IT WORKS ]
-            </Link>
-            <Link
-              href="#impact"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ IMPACT ]
-            </Link>
-            <Link
-              href="#ecosystem"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
-            >
-              [ ECOSYSTEM ]
-            </Link>
-            <Link
               href="#tech-stack"
               onClick={() => setMobileMenuOpen(false)}
               className="p-2 border border-white/10 hover:border-neon hover:text-neon"
@@ -355,7 +289,7 @@ export default function HeaderNav() {
             <Link
               href="/collab"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-[#ceff00] bg-[#ceff00]/10 text-[#ceff00] font-bold"
+              className="p-2 border border-[#ceff00] bg-[#ceff00]/10 text-[#ceff00] font-bold col-span-2 text-center"
             >
               [ REPORT & COLLAB ]
             </Link>
