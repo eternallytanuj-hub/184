@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/ui/Button';
+import AuthModal from '@/components/collab/AuthModal';
 import { supabase } from '@/lib/auth/supabaseClient';
 
 interface OfficerSession {
@@ -18,6 +18,7 @@ interface OfficerSession {
 export default function HeaderNav() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [officer, setOfficer] = useState<OfficerSession | null>(null);
 
@@ -212,48 +213,86 @@ export default function HeaderNav() {
             </div>
           </div>
 
-          {/* Center Navigation Group */}
-          <nav className="hidden lg:flex items-center gap-3">
+          {/* Right Action & Profile Group */}
+          <div className="hidden sm:flex items-center gap-2.5 lg:gap-3">
+            {/* Action CTAs shifted to the right with matching tactical color theme */}
             <Link
               href="/benchmarks"
-              className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/40 bg-black/60 hover:border-emerald-400 text-emerald-400 hover:text-emerald-300 font-mono text-[11px] uppercase tracking-wider transition-colors rounded-none"
+              className="px-3 py-1.5 border border-white/20 bg-black/80 hover:border-neon hover:text-neon text-zinc-300 font-mono text-[10.5px] uppercase tracking-wider transition-colors rounded-none flex items-center gap-1.5"
             >
-              <span className="h-1.5 w-1.5 bg-emerald-400 animate-pulse" />
+              <span className="h-1.5 w-1.5 bg-emerald-400" />
               <span>[ COURT BENCHMARKS ]</span>
             </Link>
-          </nav>
 
-          {/* Right Action Group */}
-          <div className="hidden sm:flex items-center gap-4 lg:gap-5">
-            {isAuthenticated && (
-              <div className="flex items-center gap-3">
+            <Link
+              href="/collab"
+              className="px-3 py-1.5 border border-white/20 bg-black/80 hover:border-neon text-zinc-300 hover:text-neon font-mono text-[10.5px] uppercase tracking-wider transition-colors rounded-none flex items-center gap-1.5"
+            >
+              <span className="h-1.5 w-1.5 bg-neon" />
+              <span>[ I4C COLLAB ]</span>
+            </Link>
+
+            <Link
+              href="/dashboard"
+              className="px-3.5 py-1.5 border border-neon/60 bg-black/80 hover:bg-neon/15 hover:border-neon text-neon font-mono text-[10.5px] uppercase font-bold tracking-wider transition-all rounded-none flex items-center gap-1.5"
+            >
+              <span>EXPLORE DASHBOARD</span>
+              <span className="text-[8px] text-neon">■</span>
+            </Link>
+
+            {/* Subtle Vertical Divider */}
+            <div className="h-5 w-[1px] bg-white/15 mx-0.5 hidden lg:block" />
+
+            {/* Officer Profile / Login in Far Right Top Corner with Official Logo */}
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
                 {officer && (
-                  <div className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 bg-black/80 border border-white/10 font-mono text-[10px] uppercase tracking-wider text-zinc-300">
-                    <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
+                  <div
+                    className="flex items-center gap-2 px-2.5 py-1.5 bg-black/80 border border-white/20 font-mono text-[10px] uppercase tracking-wider text-zinc-300"
+                    title={`Authenticated Officer: ${officer.name} (${officer.persona || officer.role || 'Officer'})`}
+                  >
+                    <div className="relative h-4 w-4 flex-shrink-0 flex items-center justify-center bg-zinc-900 border border-white/20 p-0.5">
+                      <Image
+                        src="/logos/emblem_india.svg"
+                        alt="Official Police Seal"
+                        width={14}
+                        height={14}
+                        className="h-3.5 w-auto filter invert brightness-200"
+                      />
+                    </div>
                     <span className="text-neon font-bold">{officer.badgeId}</span>
-                    <span className="text-zinc-500">|</span>
-                    <span className="text-zinc-300 truncate max-w-[120px]">{officer.name}</span>
+                    <span className="text-zinc-600 hidden xl:inline">|</span>
+                    <span className="text-zinc-300 truncate max-w-[120px] hidden xl:inline">{officer.name}</span>
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="px-3 py-1.5 border border-white/15 bg-black hover:border-red-500/50 hover:text-red-400 text-zinc-300 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
+                  className="px-2.5 py-1.5 border border-white/15 bg-black/80 hover:border-red-500/50 hover:text-red-400 text-zinc-400 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
                   title="Sign out of CyberCast session"
                 >
                   [ SIGN OUT ]
                 </button>
               </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 border border-white/20 bg-black/80 hover:border-neon hover:text-neon text-zinc-300 font-mono text-[10.5px] uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
+                title="Officer Login / Authentication"
+              >
+                <div className="relative h-4 w-4 flex-shrink-0 flex items-center justify-center bg-zinc-900 border border-white/20 p-0.5">
+                  <Image
+                    src="/logos/emblem_india.svg"
+                    alt="Official Police Seal"
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-auto filter invert brightness-200"
+                  />
+                </div>
+                <span>[ OFFICER LOGIN ]</span>
+              </button>
             )}
-            <Link
-              href="/collab"
-              className="px-3.5 py-1.5 border border-white/20 bg-black hover:border-neon text-white hover:text-neon font-mono text-[10px] sm:text-[11px] uppercase tracking-wider transition-colors rounded-none"
-            >
-              [ I4C COLLAB ]
-            </Link>
-            <Button href="/dashboard" variant="neon" size="sm" className="rounded-none">
-              EXPLORE DASHBOARD
-            </Button>
           </div>
 
           {/* Mobile Menu Toggle Button */}
@@ -273,56 +312,107 @@ export default function HeaderNav() {
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#0c0c0c] border-b border-white/10 px-6 py-6 space-y-4">
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div className="lg:hidden bg-[#0c0c0c] border-b border-white/10 px-6 py-6 space-y-4 font-mono">
+          <div className="grid grid-cols-2 gap-2 text-xs">
             <Link
               href="#tech-stack"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
+              className="p-2 border border-white/10 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 text-center"
             >
               [ TECH STACK ]
             </Link>
             <Link
               href="#footer"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-white/10 hover:border-neon hover:text-neon"
+              className="p-2 border border-white/10 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 text-center"
             >
               [ TEAM ROSTER ]
             </Link>
             <Link
               href="/benchmarks"
               onClick={() => setMobileMenuOpen(false)}
-              className="p-2 border border-emerald-500/40 bg-emerald-950/20 text-emerald-400 hover:border-emerald-400 font-mono text-xs uppercase font-bold col-span-2 text-center flex items-center justify-center gap-2"
+              className="p-2 border border-white/15 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 font-bold col-span-2 text-center flex items-center justify-center gap-2"
             >
-              <span className="h-1.5 w-1.5 bg-emerald-400 animate-pulse" />
-              [ COURT BENCHMARKS ]
+              <span className="h-1.5 w-1.5 bg-emerald-400" />
+              <span>[ COURT BENCHMARKS ]</span>
             </Link>
           </div>
           <div className="pt-2 space-y-2">
-            {isAuthenticated && (
+            {isAuthenticated ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2.5 bg-black border border-white/20 text-xs">
+                  <div className="relative h-4 w-4 flex-shrink-0 flex items-center justify-center bg-zinc-900 border border-white/20 p-0.5">
+                    <Image
+                      src="/logos/emblem_india.svg"
+                      alt="Official Police Seal"
+                      width={14}
+                      height={14}
+                      className="h-3.5 w-auto filter invert brightness-200"
+                    />
+                  </div>
+                  <span className="text-neon font-bold">{officer?.badgeId}</span>
+                  <span className="text-zinc-600">|</span>
+                  <span className="text-zinc-300 truncate">{officer?.name}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="w-full flex items-center justify-center p-2.5 bg-black border border-red-500/40 hover:border-red-400 text-red-400 text-xs uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
+                >
+                  [ SIGN OUT ]
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  handleSignOut();
+                  setShowAuthModal(true);
                 }}
-                className="w-full flex items-center justify-center p-2.5 bg-black border border-red-500/40 hover:border-red-400 text-red-400 font-mono text-xs uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 p-2.5 bg-black border border-white/20 hover:border-neon text-zinc-300 hover:text-neon text-xs uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
               >
-                [ SIGN OUT ]
+                <div className="relative h-4 w-4 flex-shrink-0 flex items-center justify-center bg-zinc-900 border border-white/20 p-0.5">
+                  <Image
+                    src="/logos/emblem_india.svg"
+                    alt="Official Police Seal"
+                    width={14}
+                    height={14}
+                    className="h-3.5 w-auto filter invert brightness-200"
+                  />
+                </div>
+                <span>[ OFFICER LOGIN ]</span>
               </button>
             )}
             <Link
               href="/collab"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full flex items-center justify-center p-2.5 bg-[#171717] border border-white/20 text-[#ceff00] font-mono text-xs uppercase font-bold"
+              className="w-full flex items-center justify-center gap-2 p-2.5 bg-black border border-white/20 hover:border-neon text-zinc-300 hover:text-neon text-xs uppercase font-bold transition-colors"
             >
-              ACCESS I4C COLLAB SYSTEM →
+              <span className="h-1.5 w-1.5 bg-neon" />
+              <span>[ I4C COLLAB SYSTEM ]</span>
             </Link>
-            <Button href="/dashboard" variant="neon" size="md" className="w-full justify-center">
-              EXPLORE DASHBOARD
-            </Button>
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full flex items-center justify-center gap-2 p-2.5 bg-black border border-neon/60 hover:bg-neon/15 hover:border-neon text-neon text-xs uppercase font-bold transition-colors"
+            >
+              <span>EXPLORE DASHBOARD</span>
+              <span className="text-[9px]">■</span>
+            </Link>
           </div>
         </div>
+      )}
+
+      {/* Login Authentication Modal */}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onLoginSuccess={() => setShowAuthModal(false)}
+        />
       )}
     </header>
   );
