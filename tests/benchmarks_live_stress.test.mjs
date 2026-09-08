@@ -426,14 +426,22 @@ test('6. Production Runtime HTTP Response on /benchmarks', async (t) => {
       assert.ok(html.includes(caseId), `Rendered page must contain case ID ${caseId}`);
     }
 
-    // 2. Verify Key Institutional Headlines and Metrics
+    // 2. Verify Key Institutional Headlines and Empirical Metrics (No False 100% Claims)
     assert.ok(
-      html.includes('100% TOP-3 CANDIDATE COVERAGE'),
-      'Rendered page must contain 100% Top-3 Candidate Coverage headline'
+      html.includes('TOP-3 RETRIEVAL: 6/6 CASES') || html.includes('TOP-3 RETRIEVAL'),
+      'Rendered page must contain Top-3 Retrieval metric'
     );
     assert.ok(
-      html.includes('85.9% VALIDATION ACCURACY'),
+      html.includes('85.9%') || html.includes('5-FOLD CV: 85.9%'),
       'Rendered page must contain 85.9% Validation Accuracy metric'
+    );
+    assert.ok(
+      !html.includes('100% TOP-3 CANDIDATE COVERAGE'),
+      'Rendered page must NOT contain inflated 100% Top-3 marketing claim'
+    );
+    assert.ok(
+      !html.includes('100% TOP-1 MATCH'),
+      'Rendered page must NOT contain inflated 100% Top-1 marketing claim'
     );
 
     // 3. Verify Two Core Tabs Present

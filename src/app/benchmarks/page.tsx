@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import HeaderNav from '@/components/navigation/HeaderNav';
@@ -12,85 +12,82 @@ import {
   SHAPExplanation,
 } from '@/lib/apiService';
 import {
-  CheckCircle2,
   ExternalLink,
-  Play,
   RefreshCw,
-  Check,
   MapPin,
   Shield,
   Database,
   IndianRupee,
   Activity,
   Clock,
-  TrendingUp,
   Cpu,
+  ArrowRight,
 } from 'lucide-react';
 
 interface CaseExtendedMeta {
   victimState: string;
   muleState: string;
+  muleBank: string;
   tierBadge: string;
   channelType: string;
   velocityWindow: string;
   withdrawalMethod: string;
-  groundTruthRankText: string;
 }
 
 const CASE_EXTENDED_META: Record<string, CaseExtendedMeta> = {
   'CS-001': {
     victimState: 'Delhi',
     muleState: 'Uttar Pradesh',
+    muleBank: 'Yes Bank',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'Over-The-Counter Branch + ATM Layering',
     velocityWindow: '3–6 Hours (Multi-Hop Layering)',
     withdrawalMethod: 'Axis Bank ATM, Bahraich + Self-Cheque Clearing',
-    groundTruthRankText: 'Identified in Model Top-3 Candidates (6/6 Judicial Recall)',
   },
   'CS-012': {
     victimState: 'Delhi',
     muleState: 'Jharkhand',
+    muleBank: 'SBI',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'High-Speed Standalone ATM Network',
     velocityWindow: '< 3 Hours (Rapid OTP Cashout)',
     withdrawalMethod: 'Dhanbad ATM Cluster Cash Extraction',
-    groundTruthRankText: 'Identified as #1 Top Match (Rank 1 / 84% Probability)',
   },
   'CS-015': {
     victimState: 'Delhi',
     muleState: 'Rajasthan',
+    muleBank: 'PNB',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'Serial Multi-ATM Skimming Grid',
     velocityWindow: '< 3 Hours (Fast Transit Skimming)',
     withdrawalMethod: 'Sindhi Camp & Railway Station ATMs, Jaipur',
-    groundTruthRankText: 'Identified as #1 Top Match (Rank 1 / 79% Probability)',
   },
   'CS-011': {
     victimState: 'Delhi',
     muleState: 'Uttar Pradesh',
+    muleBank: 'SBI',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'Dense Regional ATM Cluster Kiosks',
     velocityWindow: '< 4 Hours (Immediate Cash-out)',
     withdrawalMethod: 'Greater Noida 24/7 ATM Booths',
-    groundTruthRankText: 'Identified in Model Top-3 Candidates (6/6 Judicial Recall)',
   },
   'CS-013': {
     victimState: 'Haryana',
     muleState: 'Uttar Pradesh',
+    muleBank: 'Canara Bank',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'Branch Cheque + ATM Syndicate Routing',
     velocityWindow: '4–8 Hours (Structured Clearing)',
     withdrawalMethod: 'Ghaziabad Bank Branch Counter + Local ATMs',
-    groundTruthRankText: 'Identified as #1 Top Match (Rank 1 / 82% Probability)',
   },
   'CS-002': {
     victimState: 'Delhi',
     muleState: 'Punjab',
+    muleBank: 'HDFC Bank',
     tierBadge: 'HIGH CAPITAL TIER (≥ ₹2L)',
     channelType: 'Bank Branch Counter Self-Cheque Clearance',
     velocityWindow: 'Same-Day Commercial Banking Window',
     withdrawalMethod: 'HDFC Bank Counter, Kapurthala Road, Jalandhar',
-    groundTruthRankText: 'Identified as #1 Top Match (Rank 1 / 72% Probability)',
   },
 };
 
@@ -113,34 +110,51 @@ interface LiveInferenceState {
 export default function BenchmarksPage() {
   const verifiedCases = ACTIVE_INCIDENTS_DATA.filter((c) => c.isRealCourtCase);
   const [activeCaseId, setActiveCaseId] = useState<string>(verifiedCases[0]?.id || 'CS-001');
-  const [activeTab, setActiveTab] = useState<'provenance' | 'prediction'>('provenance');
-  const [isRunningLiveInference, setIsRunningLiveInference] = useState(false);
-  const [liveInferenceResult, setLiveInferenceResult] = useState<LiveInferenceState | null>(null);
+  const [activeTab, setActiveTab] = useState<'prediction' | 'provenance'>('prediction');
+
+  // Live inference state cached by Case ID to ensure instant responsiveness once computed
+  const [predictionsMap, setPredictionsMap] = useState<Record<string, LiveInferenceState>>({});
+  const [isLoadingInference, setIsLoadingInference] = useState(false);
+  const activeRequestCaseIdRef = React.useRef<string | null>(null);
+
+  // Synchronize document body background color for judicial trust only on /benchmarks
+  useEffect(() => {
+    const originalBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#ececec';
+    return () => {
+      document.body.style.backgroundColor = originalBg;
+    };
+  }, []);
 
   const currentCase = verifiedCases.find((c) => c.id === activeCaseId) || verifiedCases[0];
 
   const currentMeta: CaseExtendedMeta = CASE_EXTENDED_META[currentCase.id] || {
     victimState: currentCase.victimLocation.includes('Haryana') ? 'Haryana' : 'Delhi',
     muleState: currentCase.groundTruthState || 'Uttar Pradesh',
+    muleBank: 'SBI',
     tierBadge: currentCase.amount >= 200000 ? 'HIGH CAPITAL TIER (≥ ₹2L)' : 'RAPID TIER',
     channelType: currentCase.amount >= 200000 ? 'Over-The-Counter Branch' : 'ATM Network',
     velocityWindow: '2–4 Hours',
     withdrawalMethod: currentCase.groundTruthLocation || 'ATM Kiosk',
-    groundTruthRankText: 'Verified in Model Predictions',
   };
 
-  const handleRunLiveInference = async (caseItem: CrimeIncidentEntity) => {
-    setIsRunningLiveInference(true);
-    setLiveInferenceResult(null);
+  // Run live prediction against deployed Railway backend
+  const executeLivePrediction = useCallback(async (caseItem: CrimeIncidentEntity, force = false) => {
+    if (!force && predictionsMap[caseItem.id]) {
+      return;
+    }
+
+    activeRequestCaseIdRef.current = caseItem.id;
+    setIsLoadingInference(true);
 
     const meta = CASE_EXTENDED_META[caseItem.id] || {
       victimState: caseItem.victimLocation.includes('Haryana') ? 'Haryana' : 'Delhi',
       muleState: caseItem.groundTruthState || 'Uttar Pradesh',
+      muleBank: 'SBI',
       tierBadge: caseItem.amount >= 200000 ? 'HIGH CAPITAL TIER (≥ ₹2L)' : 'RAPID TIER',
       channelType: caseItem.amount >= 200000 ? 'Branch Counter' : 'ATM Network',
       velocityWindow: '2–4 Hours',
       withdrawalMethod: caseItem.groundTruthLocation || 'ATM Kiosk',
-      groundTruthRankText: 'Verified in Model Predictions',
     };
 
     const complaintInput: ComplaintInput = {
@@ -149,7 +163,7 @@ export default function BenchmarksPage() {
       amount_stolen_inr: caseItem.amount,
       victim_state: meta.victimState,
       mule_account_state: meta.muleState,
-      mule_account_bank: 'SBI',
+      mule_account_bank: meta.muleBank || 'SBI',
       complaint_hour: 14,
       complaint_day_of_week: 3,
     };
@@ -160,8 +174,8 @@ export default function BenchmarksPage() {
       const shap = getSHAPExplanation(complaintInput, prediction);
       const elapsed = Math.round(performance.now() - startTime);
 
-      setLiveInferenceResult({
-        latencyMs: prediction.processing_latency_ms || elapsed || 16,
+      const result: LiveInferenceState = {
+        latencyMs: Math.round(prediction.processing_latency_ms || elapsed || 18),
         predictedState: prediction.top_predicted_states[0]?.state || meta.muleState,
         confidence: Math.round((prediction.top_predicted_states[0]?.probability || 0.8) * 100),
         topPredictedStates: prediction.top_predicted_states || [],
@@ -171,88 +185,164 @@ export default function BenchmarksPage() {
         timeUrgency: prediction.time_urgency || 'CRITICAL (Cash-out imminent)',
         estimatedTimeWindowHours: prediction.estimated_time_window_hours || 3.5,
         recommendedActions: prediction.recommended_actions || [
-          `Alert branch managers in ${meta.muleState} to place debit blocks.`,
+          `Alert branch managers in ${meta.muleState} to place debit blocks on suspected accounts.`,
           `Initiate CFCFRMS freeze request with bank nodal officers.`,
           `Coordinate cross-border intelligence with ${meta.muleState} State Cyber Cell.`,
         ],
         shapExplanation: shap,
         timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST',
         isFallback: prediction.isFallback,
-      });
+      };
+
+      setPredictionsMap((prev) => ({
+        ...prev,
+        [caseItem.id]: result,
+      }));
     } catch (err) {
       console.error('[Benchmarks] Live inference execution error:', err);
     } finally {
-      setIsRunningLiveInference(false);
+      if (activeRequestCaseIdRef.current === caseItem.id) {
+        setIsLoadingInference(false);
+      }
     }
+  }, [predictionsMap]);
+
+  // Automatically trigger live model inference whenever the selected case changes
+  useEffect(() => {
+    if (!predictionsMap[currentCase.id]) {
+      executeLivePrediction(currentCase);
+    }
+  }, [currentCase, executeLivePrediction, predictionsMap]);
+
+  const liveResult = predictionsMap[currentCase.id];
+
+  // Ground truth evaluation logic computed directly from live model predictions
+  const evaluateGroundTruthMatch = (caseEntity: CrimeIncidentEntity, result?: LiveInferenceState) => {
+    if (!result || !result.topPredictedStates || result.topPredictedStates.length === 0) {
+      return null;
+    }
+    const targetGroundTruth = (caseEntity.groundTruthState || '').toLowerCase().trim();
+    const matchIndex = (result.topPredictedStates || []).findIndex((s) => {
+      const p = (s.state || '').toLowerCase().trim();
+      return p === targetGroundTruth || p.includes(targetGroundTruth) || targetGroundTruth.includes(p);
+    });
+
+    if (matchIndex === 0) {
+      return {
+        isMatch: true,
+        isTop1: true,
+        rank: 1,
+        prob: Math.round(result.topPredictedStates[0].probability * 100),
+        badgeText: 'RANK 1 EXACT MATCH',
+        summary: `The model's #1 primary prediction (${result.predictedState}) matches the verified judicial ground-truth cash-out jurisdiction.`,
+      };
+    }
+
+    if (matchIndex > 0 && matchIndex < 3) {
+      const matched = result.topPredictedStates[matchIndex];
+      return {
+        isMatch: true,
+        isTop1: false,
+        rank: matchIndex + 1,
+        prob: Math.round(matched.probability * 100),
+        badgeText: `RANK ${matchIndex + 1} IN TOP-3 CANDIDATES`,
+        summary: `Ground-truth state (${caseEntity.groundTruthState}) was captured as Candidate #${matchIndex + 1} (${(matched.probability * 100).toFixed(1)}% probability). The model narrowed 28+ states down to 3 actionable interdiction corridors.`,
+      };
+    }
+
+    return {
+      isMatch: false,
+      isTop1: false,
+      rank: null,
+      prob: null,
+      badgeText: 'OUTSIDE TOP-3 POOL',
+      summary: `Ground truth (${caseEntity.groundTruthState}) was evaluated outside the top-3 actionable priority pool.`,
+    };
   };
 
+  const matchEval = evaluateGroundTruthMatch(currentCase, liveResult);
+
   return (
-    <div className="min-h-screen bg-[#0c0c0c] text-white flex flex-col font-mono selection:bg-[#ceff00] selection:text-black">
-      {/* Top Navbar */}
+    <div className="min-h-screen bg-[#ececec] text-zinc-900 flex flex-col font-mono selection:bg-zinc-900 selection:text-white bg-grid-technical-light">
+      {/* Top Fixed Navbar */}
       <HeaderNav />
 
-      {/* Main Container */}
+      {/* Main Page Container */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 space-y-6">
-        
-        {/* Top Header & Judicial Provenance Banner */}
-        <div className="p-5 bg-[#121212] border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="h-10 w-10 bg-black border border-emerald-500/50 flex items-center justify-center p-1.5 flex-shrink-0">
-              <Image
-                src="/logos/emblem_india.svg"
-                alt="Emblem of India"
-                width={28}
-                height={28}
-                className="h-full w-full object-contain filter invert brightness-200"
-              />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="text-emerald-400 text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5">
-                  <span className="h-2 w-2 bg-emerald-400 animate-pulse" />
-                  JUDICIAL PROVENANCE & REAL CASE BENCHMARK
-                </span>
-                <span className="bg-emerald-500/20 text-emerald-300 text-[9px] px-2 py-0.5 border border-emerald-500/40 font-bold">
-                  100% TOP-3 CANDIDATE COVERAGE (6/6 REAL HC CASES)
-                </span>
-                <span className="text-zinc-500 text-[10px]">|</span>
-                <span className="bg-zinc-800/80 text-[#ceff00] text-[9px] px-2 py-0.5 border border-white/20 font-bold">
-                  85.9% VALIDATION ACCURACY
-                </span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold text-white tracking-wide">
-                Cybercast ML Validation Against Verified High Court Judgments
-              </h1>
-              <p className="text-xs text-zinc-400 mt-1 max-w-4xl">
-                Benchmarking our calibrated XGBoost predictive pipeline against real judicial FIRs and High Court orders. 
-                Every case represents a real citizen complaint where actual cash-out locations were verified by State Police and CCTV forensics.
-              </p>
-            </div>
-          </div>
 
-          {/* Quick Metrics */}
-          <div className="flex items-center gap-3 self-start md:self-auto flex-shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-white/10 w-full md:w-auto">
-            <div className="px-3 py-2 bg-black border border-white/10 text-right">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-wider">TOP-3 COVERAGE</div>
-              <div className="text-base font-bold text-emerald-400">100%</div>
-              <div className="text-[8px] text-zinc-500">6/6 Court Cases</div>
+        {/* SECTION A: Judicial Provenance & Forensic Benchmark Banner (White Platinum Editorial Container) */}
+        <div className="p-6 sm:p-7 bg-white border border-black/15 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 bg-zinc-50 border border-black/15 flex items-center justify-center p-2 flex-shrink-0">
+                <Image
+                  src="/logos/emblem_india.svg"
+                  alt="Emblem of India"
+                  width={34}
+                  height={34}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-zinc-600 text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5">
+                    <span className="h-2 w-2 bg-black rounded-none" />
+                    [ 00 // JUDICIAL PROVENANCE & FORENSIC AUDIT ]
+                  </span>
+                  <span className="bg-zinc-100 text-zinc-800 text-[10px] px-2.5 py-0.5 border border-black/15 font-bold">
+                    6 REAL HIGH COURT CASES
+                  </span>
+                  <span className="bg-emerald-50 text-emerald-800 text-[10px] px-2.5 py-0.5 border border-emerald-300 font-bold">
+                    EMPIRICAL TOP-1 MATCH: 50.0% (3/6 ZERO-SHOT)
+                  </span>
+                  <span className="bg-blue-50 text-blue-800 text-[10px] px-2.5 py-0.5 border border-blue-300 font-bold">
+                    TOP-3 RETRIEVAL: 6/6 CASES
+                  </span>
+                  <span className="bg-zinc-100 text-zinc-700 text-[10px] px-2.5 py-0.5 border border-black/15 font-mono">
+                    5-FOLD CV: 85.9% TOP-1
+                  </span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight">
+                  Cybercast ML Validation Against Verified High Court Judgments
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-600 max-w-4xl leading-relaxed">
+                  Benchmarking our calibrated multi-class XGBoost predictive pipeline against real judicial FIRs and High Court orders. 
+                  Every case represents an authenticated citizen complaint where actual cash-out locations were verified by State Police and CCTV forensics.
+                </p>
+              </div>
             </div>
-            <div className="px-3 py-2 bg-black border border-white/10 text-right">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-wider">VALIDATION</div>
-              <div className="text-base font-bold text-[#ceff00]">85.9%</div>
-              <div className="text-[8px] text-zinc-500">5-Fold CV Top-1</div>
-            </div>
-            <div className="px-3 py-2 bg-black border border-white/10 text-right">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-wider">INFERENCE</div>
-              <div className="text-base font-bold text-white">16 MS</div>
-              <div className="text-[8px] text-zinc-500">Production Model</div>
+
+            {/* Quick Empirical Stat Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex items-center gap-3 self-start lg:self-auto flex-shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-black/10 w-full lg:w-auto">
+              <div className="p-3 bg-zinc-50 border border-black/15 text-right min-w-[115px]">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-wider">ZERO-SHOT TOP-1</div>
+                <div className="text-base font-bold text-zinc-900 font-mono">50.0%</div>
+                <div className="text-[8.5px] text-zinc-500">3/6 Court Cases</div>
+              </div>
+              <div className="p-3 bg-zinc-50 border border-black/15 text-right min-w-[115px]">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-wider">TOP-3 RETRIEVAL</div>
+                <div className="text-base font-bold text-emerald-700 font-mono">6/6 Cases</div>
+                <div className="text-[8.5px] text-zinc-500">Narrowed from 28+</div>
+              </div>
+              <div className="p-3 bg-zinc-50 border border-black/15 text-right min-w-[115px]">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-wider">5-FOLD CV</div>
+                <div className="text-base font-bold text-zinc-900 font-mono">85.9%</div>
+                <div className="text-[8.5px] text-zinc-500">Stratified Baseline</div>
+              </div>
+              <div className="p-3 bg-zinc-50 border border-black/15 text-right min-w-[115px]">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-wider">LIVE LATENCY</div>
+                <div className="text-base font-bold text-emerald-700 font-mono">
+                  {liveResult ? `${liveResult.latencyMs} MS` : '~20 MS'}
+                </div>
+                <div className="text-[8.5px] text-zinc-500">Railway ML Service</div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Case Selector Strip */}
-        <div className="p-3 bg-[#141414] border border-white/10 flex items-center gap-2 overflow-x-auto text-[11px]">
-          <span className="text-zinc-500 uppercase text-[9px] flex-shrink-0 tracking-wider pl-1">
+        {/* SECTION B: Case Selector Strip */}
+        <div className="p-3.5 bg-white border border-black/15 shadow-sm flex items-center gap-2.5 overflow-x-auto text-[11px]">
+          <span className="text-zinc-500 uppercase text-[10px] font-bold flex-shrink-0 tracking-wider pl-1">
             SELECT VERIFIED CASE:
           </span>
           {verifiedCases.map((c) => {
@@ -262,308 +352,167 @@ export default function BenchmarksPage() {
                 key={c.id}
                 onClick={() => {
                   setActiveCaseId(c.id);
-                  setLiveInferenceResult(null);
+                  if (!predictionsMap[c.id]) {
+                    executeLivePrediction(c);
+                  }
                 }}
-                className={`px-3 py-2 border flex-shrink-0 transition-all text-left cursor-pointer ${
+                className={`px-3.5 py-2 border flex-shrink-0 transition-all text-left cursor-pointer ${
                   isSelected
-                    ? 'bg-emerald-500/20 border-emerald-400 text-white font-bold shadow-md shadow-emerald-500/10'
-                    : 'bg-black border-white/15 text-zinc-400 hover:text-white hover:border-white/30'
+                    ? 'bg-zinc-900 border-zinc-900 text-white font-bold shadow-sm'
+                    : 'bg-zinc-50 hover:bg-zinc-100 border-black/15 text-zinc-800 hover:border-black/30'
                 }`}
               >
                 <div className="flex items-center gap-2 text-[10px]">
-                  <span className="text-emerald-400 font-bold">[{c.id}]</span>
+                  <span className={isSelected ? 'text-[#ceff00] font-bold' : 'text-zinc-900 font-bold'}>
+                    [{c.id}]
+                  </span>
                   <span className="font-semibold">{c.courtName?.split(' ')[0]}</span>
-                  <span className="text-zinc-500 font-normal">({c.amountFormatted})</span>
+                  <span className={isSelected ? 'text-zinc-300 font-normal' : 'text-zinc-500 font-normal'}>
+                    ({c.amountFormatted})
+                  </span>
                 </div>
-                <div className="text-[9px] text-zinc-400 truncate max-w-[190px] mt-0.5">
-                  {c.caseTitle?.substring(0, 32)}...
+                <div className={`text-[9px] truncate max-w-[190px] mt-0.5 ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                  {c.caseTitle?.substring(0, 30)}...
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* View Switcher Tabs (2 Tabs: Provenance & Prediction) */}
-        <div className="flex border-b border-white/10 bg-[#121212] px-4 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('provenance')}
-            className={`py-3 px-5 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
-              activeTab === 'provenance'
-                ? 'border-emerald-400 text-emerald-400 bg-white/[0.02]'
-                : 'border-transparent text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Image
-              src="/logos/emblem_india.svg"
-              alt="Court Emblem"
-              width={14}
-              height={14}
-              className="h-3.5 w-auto filter invert brightness-200"
-            />
-            <span className="uppercase tracking-wider">Ground Truth & Legal Evidence</span>
-          </button>
+        {/* SECTION C: View Switcher Tabs (2 Clean High-Trust Tabs) */}
+        <div className="flex border-b border-black/15 bg-white px-4 text-xs font-semibold shadow-xs">
           <button
             onClick={() => setActiveTab('prediction')}
-            className={`py-3 px-5 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
+            className={`py-3.5 px-5 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
               activeTab === 'prediction'
-                ? 'border-emerald-400 text-emerald-400 bg-white/[0.02]'
-                : 'border-transparent text-zinc-400 hover:text-white'
+                ? 'border-zinc-900 text-zinc-900 bg-zinc-50/80 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900'
             }`}
           >
             <Image
               src="/logos/cybercast.png"
               alt="CyberCast Model"
-              width={14}
-              height={14}
-              className="h-3.5 w-auto object-contain"
+              width={16}
+              height={16}
+              className="h-4 w-auto object-contain"
             />
-            <span className="uppercase tracking-wider">Model Predictions & Verdict</span>
+            <span className="uppercase tracking-wider">Model Predictions &amp; Verdict</span>
+            {isLoadingInference && (
+              <RefreshCw className="h-3 w-3 animate-spin text-zinc-500 ml-1" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('provenance')}
+            className={`py-3.5 px-5 border-b-2 flex items-center gap-2 transition-colors cursor-pointer ${
+              activeTab === 'provenance'
+                ? 'border-zinc-900 text-zinc-900 bg-zinc-50/80 font-bold'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            <Image
+              src="/logos/emblem_india.svg"
+              alt="Court Emblem"
+              width={15}
+              height={15}
+              className="h-4 w-auto object-contain"
+            />
+            <span className="uppercase tracking-wider">Ground Truth &amp; Legal Evidence</span>
           </button>
         </div>
 
-        {/* TAB 1: GROUND TRUTH LEGAL EVIDENCE */}
-        {activeTab === 'provenance' && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Case Overview Card */}
-            <div className="p-5 bg-[#121212] border border-emerald-500/30">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-400 pb-2.5 border-b border-white/10 mb-3">
-                <div className="flex items-center gap-3">
-                  <span>CASE REGISTRY: <strong className="text-white">{currentCase.id}</strong></span>
-                  <span className="text-zinc-600">•</span>
-                  <span>STATUS: <strong className="text-emerald-400">VERIFIED HIGH COURT RECORD</strong></span>
-                </div>
-                <div>
-                  JUDGMENT DATE: <strong className="text-emerald-400">{currentCase.decisionDate}</strong>
-                </div>
-              </div>
-
-              <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
-                {currentCase.caseTitle}
-              </h2>
-
-              <div className="mt-3 text-xs text-zinc-400 flex flex-wrap items-center gap-6">
-                <div>Court Jurisdiction: <strong className="text-white">{currentCase.courtName}</strong></div>
-                <div>Fraud Modus: <strong className="text-amber-400">{currentCase.fraudType}</strong></div>
-                <div>Total Defrauded Funds: <strong className="text-[#ceff00] font-bold">{currentCase.amountFormatted}</strong></div>
-              </div>
-
-              {currentCase.courtUrl && (
-                <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <a
-                    href={currentCase.courtUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300 underline text-xs font-semibold break-all"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                    <span className="break-all">View Official Court Record on Indian Kanoon ({currentCase.courtUrl}) ↗</span>
-                  </a>
-                  <span className="text-[10px] text-zinc-500 shrink-0">Judicial Record Authenticated</span>
-                </div>
-              )}
-            </div>
-
-            {/* Side-by-Side: Citizen Complaint vs Physical Ground Truth */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Left Column: Citizen Complaint & Network Pattern */}
-              <div className="p-5 bg-[#121212] border border-white/15 space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-2 border-b border-white/10 pb-3">
-                  <Image
-                    src="/logos/ncrb.png"
-                    alt="NCRB"
-                    width={16}
-                    height={16}
-                    className="h-4 w-auto object-contain"
-                  />
-                  <span>1. CITIZEN COMPLAINT & NETWORK PATTERN</span>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Incident Location (Victim Filing):</span>
-                    <span className="text-white font-semibold">{currentCase.victimLocation}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Stolen Funds In Transit:</span>
-                    <span className="text-[#ceff00] font-bold font-mono text-sm">{currentCase.amountFormatted}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Mule Account Routing Network Pattern:</span>
-                    <div className="p-3 bg-black border border-white/10 text-zinc-200 mt-1 leading-relaxed text-[11px]">
-                      {currentCase.networkPattern}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">FIR / Case Notes:</span>
-                    <div className="p-3 bg-black border border-white/10 text-zinc-300 mt-1 text-[11px] leading-relaxed">
-                      {currentCase.notes}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Actual Cash-Out Ground Truth */}
-              <div className="p-5 bg-[#121212] border border-emerald-500/40 space-y-4">
-                <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Image
-                      src="/logos/rbi.svg"
-                      alt="RBI"
-                      width={16}
-                      height={16}
-                      className="h-4 w-auto"
-                    />
-                    <span>2. PHYSICAL CASH-OUT GROUND TRUTH</span>
-                  </div>
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[9px] px-2 py-0.5 border border-emerald-500/40 font-bold">
-                    CCTV VERIFIED
-                  </span>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Actual ATM / Bank Branch Location:</span>
-                    <span className="text-white font-bold font-mono text-sm">{currentCase.groundTruthLocation}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Physical Cash Extracted:</span>
-                    <span className="text-emerald-300 font-semibold">{currentCase.groundTruthAmount}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-zinc-500 block text-[10px] uppercase">Judicial CCTV & Location Evidence:</span>
-                    <div className="p-3 bg-black border border-white/10 text-zinc-200 mt-1 text-[11px] leading-relaxed">
-                      {currentCase.cctvEvidence}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-                    {currentCase.groundTruthCoords ? (
-                      <Link
-                        href={`/dashboard?lat=${currentCase.groundTruthCoords[0]}&lng=${currentCase.groundTruthCoords[1]}&case=${currentCase.id}`}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs uppercase flex items-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <MapPin className="h-3.5 w-3.5" />
-                        <span>[ VIEW ON RADAR MAP → ]</span>
-                      </Link>
-                    ) : (
-                      <span className="text-zinc-500 text-[10px]">Location coordinates preserved in casefile</span>
-                    )}
-
-                    <span className="text-[10px] text-zinc-500">
-                      Destination State: <strong className="text-white">{currentCase.groundTruthState}</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: MODEL PREDICTIONS & VERDICT */}
+        {/* TAB 1: LIVE MODEL PREDICTION & DETAILED VERDICT (DEFAULT TAB) */}
         {activeTab === 'prediction' && (
           <div className="space-y-6 animate-in fade-in duration-150">
 
-            {/* 1. Calibrated Verdict Banner & Institutional Badges */}
-            <div className="p-5 sm:p-6 bg-[#121212] border border-emerald-500/40 relative">
+            {/* Scientific Accuracy & Methodology Banner */}
+            <div className="p-6 bg-white border border-black/15 shadow-sm">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/40 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                      100% TOP-3 CANDIDATE COVERAGE (6/6 REAL HC CASES)
+                    <span className="px-2.5 py-0.5 bg-zinc-100 text-zinc-800 text-[10px] font-bold border border-black/15 font-mono">
+                      [ REAL-TIME PREDICTIVE ENGINE ]
                     </span>
-                    <span className="px-2.5 py-1 bg-zinc-900 text-[#ceff00] text-[10px] font-bold border border-white/20">
-                      85.9% VALIDATION ACCURACY
+                    <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                      LIVE RAILWAY ML SERVICE
                     </span>
-                    <span className="px-2.5 py-1 bg-zinc-900 text-zinc-300 text-[10px] font-mono border border-white/10">
-                      ISOTONIC CALIBRATED
+                    <span className="px-2.5 py-0.5 bg-zinc-100 text-zinc-800 text-[10px] font-mono border border-black/15">
+                      CALIBRATED MULTI-CLASS XGBOOST
                     </span>
                   </div>
 
-                  <div>
-                    <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider">
-                      Ground Truth Corroboration & Risk-Calibrated Prediction
-                    </h2>
-                    <p className="text-xs text-zinc-300 mt-1 max-w-3xl leading-relaxed">
-                      Across all 6 verified landmark judicial cases, Cybercast&apos;s predictive engine identified the true physical cash-out state{' '}
-                      (<strong className="text-white font-bold">{currentCase.groundTruthState}</strong>) within its top candidate predictions before the physical withdrawal occurred.
-                      On zero-shot judicial FIRs, the model achieved a 66.7% Top-1 match and 100.0% Top-3 coverage (narrowing 28 states down to 3 high-probability jurisdictions for targeted interdiction).
-                    </p>
-                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 uppercase tracking-wide">
+                    Real-Time Model Inference &amp; Judicial Ground-Truth Corroboration
+                  </h2>
+                  <p className="text-xs text-zinc-600 max-w-3xl leading-relaxed">
+                    Cybercast predicts the physical cash extraction jurisdiction directly from citizen complaint parameters ingested prior to cash withdrawal. 
+                    Predictions below are calculated live by our deployed FastAPI ML service on Railway, accompanied by dynamic Shapley feature attributions.
+                  </p>
 
-                  {/* Institutional Authority Badges */}
-                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-white/10 text-[11px] text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-black/10 text-[11px] text-zinc-500">
                     <div className="flex items-center gap-1.5">
                       <Image
                         src="/logos/emblem_india.svg"
                         alt="High Court Emblem"
-                        width={16}
-                        height={16}
-                        className="h-4 w-auto filter invert brightness-200"
+                        width={14}
+                        height={14}
+                        className="h-3.5 w-auto object-contain"
                       />
                       <span>Judicial High Court FIR Benchmark</span>
                     </div>
-                    <span className="text-zinc-600">•</span>
+                    <span className="text-zinc-300">•</span>
                     <div className="flex items-center gap-1.5">
                       <Image
                         src="/logos/cybercast.png"
                         alt="Cybercast Engine"
-                        width={16}
-                        height={16}
-                        className="h-4 w-auto object-contain"
+                        width={14}
+                        height={14}
+                        className="h-3.5 w-auto object-contain"
                       />
                       <span>Hierarchical XGBoost Predictor</span>
                     </div>
-                    <span className="text-zinc-600">•</span>
+                    <span className="text-zinc-300">•</span>
                     <div className="flex items-center gap-1.5">
                       <Image
                         src="/logos/rbi.svg"
                         alt="RBI Mule Monitor"
-                        width={16}
-                        height={16}
-                        className="h-4 w-auto"
+                        width={14}
+                        height={14}
+                        className="h-3.5 w-auto object-contain"
                       />
                       <span>RBI Mule Account Routing Corroboration</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Calibrated Confidence Box */}
-                <div className="flex-shrink-0 bg-black/80 border border-emerald-500/50 p-4 text-right min-w-[200px]">
-                  <div className="text-[10px] text-zinc-400 uppercase tracking-wider">BENCHMARK COVERAGE</div>
-                  <div className="text-3xl font-bold font-mono text-emerald-400">100%</div>
-                  <div className="text-[10px] text-zinc-400 uppercase mt-0.5">Top-3 Recall (6/6 Cases)</div>
-                  <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
-                    <span className="text-zinc-500">Case Confidence:</span>
-                    <span className="font-mono text-[#ceff00] font-bold">{currentCase.predictedConfidence}%</span>
+                {/* Accuracy Baseline Box */}
+                <div className="flex-shrink-0 bg-zinc-50 border border-black/15 p-4 text-right min-w-[210px]">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-wider">ZERO-SHOT BENCHMARK</div>
+                  <div className="text-2xl font-bold font-mono text-zinc-900 mt-0.5">50.0% Top-1</div>
+                  <div className="text-[10px] text-zinc-500 uppercase mt-0.5">6/6 in Top-3 Pool</div>
+                  <div className="mt-2.5 pt-2 border-t border-black/10 flex items-center justify-between text-[10px]">
+                    <span className="text-zinc-500">Validation Baseline:</span>
+                    <span className="font-mono text-zinc-800 font-bold">85.9% Top-1</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 2. Input Features Vector (4 Transparent Factor Cards) */}
+            {/* 1. Citizen Complaint Ingested Feature Vector (Unified Technical Data Grid - No Fragmented Flash Cards) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 bg-[#ceff00]" />
+                <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                  <span className="h-2 w-2 bg-black rounded-none" />
                   <span>[ 01 // CITIZEN COMPLAINT INPUT VECTOR ]</span>
                 </div>
-                <span className="text-[10px] text-zinc-500">Initial features ingested prior to physical withdrawal</span>
+                <span className="text-[10px] text-zinc-500 font-mono">Pre-withdrawal features ingested by model</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white border border-black/15 shadow-sm divide-y lg:divide-y-0 lg:divide-x divide-black/10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
                 
-                {/* Feature 1: Citizen Incident Origin (with NCRB Logo) */}
-                <div className="p-4 bg-[#121212] border border-white/15 relative flex flex-col justify-between hover:border-white/30 transition-colors">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
+                {/* Feature Column 1: Citizen Origin */}
+                <div className="p-5 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-black/10">
                       <div className="flex items-center gap-1.5">
                         <Image
                           src="/logos/ncrb.png"
@@ -572,434 +521,617 @@ export default function BenchmarksPage() {
                           height={16}
                           className="h-4 w-auto object-contain"
                         />
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">NCRB COMPLAINT</span>
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider">CITIZEN ORIGIN</span>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-red-950/60 border border-red-500/40 text-red-300 font-mono">
-                        [ CITIZEN FIR ]
+                      <span className="text-[9px] px-1.5 py-0.5 bg-zinc-100 border border-black/15 text-zinc-800 font-mono font-bold">
+                        FIR RECORD
                       </span>
                     </div>
 
-                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Citizen Incident Origin:</span>
-                    <div className="text-white font-bold text-sm mt-1 leading-snug">
+                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Incident Location:</span>
+                    <div className="text-zinc-900 font-bold text-sm leading-snug">
                       {currentCase.victimLocation}
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
+                  <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-500 flex items-center justify-between">
                     <span>Filing Jurisdiction:</span>
-                    <strong className="text-white">{currentMeta.victimState} Police</strong>
+                    <strong className="text-zinc-900 font-semibold">{currentMeta.victimState} Police</strong>
                   </div>
                 </div>
 
-                {/* Feature 2: Defrauded Capital (with Rupee Icon & Neon #ceff00 Value) */}
-                <div className="p-4 bg-[#121212] border border-white/15 relative flex flex-col justify-between hover:border-[#ceff00]/40 transition-colors">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
-                      <div className="flex items-center gap-1.5 text-[#ceff00]">
-                        <IndianRupee className="h-4 w-4" />
+                {/* Feature Column 2: Defrauded Capital */}
+                <div className="p-5 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-black/10">
+                      <div className="flex items-center gap-1 text-zinc-900">
+                        <IndianRupee className="h-3.5 w-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">DEFRAUDED CAPITAL</span>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-[#ceff00]/10 border border-[#ceff00]/40 text-[#ceff00] font-mono">
-                        [ {currentMeta.tierBadge} ]
+                      <span className="text-[9px] px-1.5 py-0.5 bg-zinc-100 border border-black/15 text-zinc-800 font-mono font-bold">
+                        {currentMeta.tierBadge.split(' ')[0]} TIER
                       </span>
                     </div>
 
-                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Stolen Capital In Transit:</span>
-                    <div className="text-xl font-bold font-mono text-[#ceff00] mt-1">
+                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Stolen Capital:</span>
+                    <div className="text-xl font-bold font-mono text-zinc-900">
                       {currentCase.amountFormatted}
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
+                  <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-500 flex items-center justify-between">
                     <span>Raw Loss:</span>
-                    <span className="font-mono text-zinc-200">₹{currentCase.amount.toLocaleString('en-IN')}</span>
+                    <span className="font-mono text-zinc-900 font-semibold">₹{currentCase.amount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
 
-                {/* Feature 3: Fraud Modus Operandi (with Amber Badge) */}
-                <div className="p-4 bg-[#121212] border border-white/15 relative flex flex-col justify-between hover:border-amber-400/40 transition-colors">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
-                      <div className="flex items-center gap-1.5 text-amber-400">
-                        <Activity className="h-4 w-4" />
+                {/* Feature Column 3: Fraud Modus Operandi */}
+                <div className="p-5 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-black/10">
+                      <div className="flex items-center gap-1 text-zinc-900">
+                        <Activity className="h-3.5 w-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">MODUS OPERANDI</span>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-amber-400/10 border border-amber-400/40 text-amber-400 font-mono">
-                        [ {currentCase.fraudType.toUpperCase()} ]
+                      <span className="text-[9px] px-1.5 py-0.5 bg-zinc-100 border border-black/15 text-zinc-800 font-mono font-bold">
+                        {currentCase.fraudType.toUpperCase()}
                       </span>
                     </div>
 
                     <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Syndicate Classification:</span>
-                    <div className="text-amber-300 font-bold text-sm mt-1">
+                    <div className="text-zinc-900 font-bold text-sm">
                       {currentCase.fraudType}
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
+                  <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-500 flex items-center justify-between">
                     <span>Velocity Window:</span>
-                    <span className="text-amber-400 font-semibold">{currentMeta.velocityWindow}</span>
+                    <span className="text-zinc-900 font-semibold">{currentMeta.velocityWindow}</span>
                   </div>
                 </div>
 
-                {/* Feature 4: Suspected Mule Account State (with Official RBI Logo) */}
-                <div className="p-4 bg-[#121212] border border-white/15 relative flex flex-col justify-between hover:border-emerald-400/40 transition-colors">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2.5">
+                {/* Feature Column 4: Destination Mule Routing */}
+                <div className="p-5 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-black/10">
                       <div className="flex items-center gap-1.5">
                         <Image
                           src="/logos/rbi.svg"
                           alt="RBI"
                           width={16}
                           height={16}
-                          className="h-4 w-auto"
+                          className="h-4 w-auto object-contain"
                         />
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">RBI MULE ROUTING</span>
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider">MULE ROUTING</span>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono">
-                        [ {currentMeta.victimState !== currentMeta.muleState ? 'INTERSTATE DIVERGENCE' : 'INTRA-STATE'} ]
+                      <span className="text-[9px] px-1.5 py-0.5 bg-zinc-100 border border-black/15 text-zinc-800 font-mono font-bold">
+                        {currentMeta.victimState !== currentMeta.muleState ? 'INTERSTATE' : 'INTRA-STATE'}
                       </span>
                     </div>
 
-                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Destination Mule State:</span>
-                    <div className="text-white font-bold text-sm mt-1">
-                      {currentMeta.muleState}
+                    <span className="text-zinc-500 text-[9px] uppercase tracking-wider block">Destination Mule:</span>
+                    <div className="text-zinc-900 font-bold text-sm">
+                      {currentMeta.muleState} ({currentMeta.muleBank})
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
-                    <span>Cross-Border Flow:</span>
-                    <span className="text-emerald-400 font-mono text-[10.5px]">
-                      {currentMeta.victimState} → {currentMeta.muleState}
-                    </span>
+                  <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-500 flex items-center justify-between">
+                    <span>Corridor:</span>
+                    <span className="text-zinc-900 font-mono font-semibold">{currentMeta.victimState} → {currentMeta.muleState}</span>
                   </div>
                 </div>
 
               </div>
             </div>
 
-            {/* 3. Underlying Prediction Conditions & Key Risk Factors */}
+            {/* 2. Real-Time Model Inference & Candidate Probabilities (LIVE FROM API) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 bg-emerald-400" />
-                  <span>[ 02 // UNDERLYING PREDICTION CONDITIONS & KEY RISK FACTORS ]</span>
+                <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                  <span className="h-2 w-2 bg-black rounded-none" />
+                  <span>[ 02 // REAL-TIME MODEL INFERENCE &amp; CANDIDATE PROBABILITIES ]</span>
                 </div>
-                <span className="text-[10px] text-zinc-500">Explainable drivers of spatial cash-out destination</span>
+                <div className="flex items-center gap-2 font-mono text-[10px]">
+                  <span className="text-zinc-500">Evaluated across 28+ States</span>
+                  <button
+                    onClick={() => executeLivePrediction(currentCase, true)}
+                    disabled={isLoadingInference}
+                    className="inline-flex items-center gap-1 text-zinc-800 hover:text-black font-semibold underline cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isLoadingInference ? 'animate-spin' : ''}`} />
+                    <span>Re-run Live Inference</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                
-                {/* Risk Driver 1: Amount Dispersal */}
-                <div className="p-5 bg-[#121212] border border-white/15 space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-[#ceff00] tracking-wider uppercase flex items-center gap-1.5">
-                        <TrendingUp className="h-3.5 w-3.5" />
-                        1. Transaction Dispersal
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-[#ceff00]/10 border border-[#ceff00]/40 text-[#ceff00] text-[9px] font-mono font-bold">
-                        +38% WEIGHT
-                      </span>
-                    </div>
-                    <div className="text-white font-bold text-xs">
-                      Daily ATM Limit Threshold Bottleneck
-                    </div>
-                    <p className="text-zinc-300 text-[11px] leading-relaxed">
-                      Defrauded funds ({currentCase.amountFormatted}) significantly exceed statutory Indian ATM daily card withdrawal limits (₹20,000–₹50,000). 
-                      This forces syndicates toward over-the-counter branch cash-outs using forged self-cheques or coordinated multi-card withdrawal rings in commercial banking hubs.
-                    </p>
-                  </div>
-                  <div className="pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
-                    <span>Channel Forecast:</span>
-                    <strong className="text-[#ceff00]">{currentMeta.channelType}</strong>
-                  </div>
-                </div>
-
-                {/* Risk Driver 2: Interstate Divergence */}
-                <div className="p-5 bg-[#121212] border border-white/15 space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1.5">
-                        <Shield className="h-3.5 w-3.5" />
-                        2. Interstate Divergence
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono font-bold">
-                        +31% WEIGHT
-                      </span>
-                    </div>
-                    <div className="text-white font-bold text-xs">
-                      Cross-Border Jurisdictional Latency Exploitation
-                    </div>
-                    <p className="text-zinc-300 text-[11px] leading-relaxed">
-                      The receiving mule account is registered in <strong className="text-white">{currentMeta.muleState}</strong>, diverging from the victim filing origin in <strong className="text-white">{currentMeta.victimState}</strong>.
-                      Organized syndicates intentionally exploit cross-state policing coordination latency. The model heavily weights destination banking infrastructure corridors.
-                    </p>
-                  </div>
-                  <div className="pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
-                    <span>Corridor Divergence:</span>
-                    <strong className="text-emerald-400">{currentMeta.victimState} → {currentMeta.muleState}</strong>
-                  </div>
-                </div>
-
-                {/* Risk Driver 3: Modus Velocity */}
-                <div className="p-5 bg-[#121212] border border-white/15 space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5" />
-                        3. Incident Timing & Velocity
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-amber-400/10 border border-amber-400/40 text-amber-400 text-[9px] font-mono font-bold">
-                        +24% WEIGHT
-                      </span>
-                    </div>
-                    <div className="text-white font-bold text-xs">
-                      Critical Cash-Out Window Dynamics
-                    </div>
-                    <p className="text-zinc-300 text-[11px] leading-relaxed">
-                      {currentCase.fraudType} requires rapid dissipation before the citizen notices unauthorized debits and triggers a 1930/CFCFRMS freeze.
-                      Syndicates deploy runners to high-speed ATM clusters within {currentMeta.velocityWindow} of account crediting.
-                    </p>
-                  </div>
-                  <div className="pt-2.5 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
-                    <span>Interdiction Window:</span>
-                    <strong className="text-amber-400">{currentMeta.velocityWindow}</strong>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* 4. Prediction Output Grid & Probability Distribution */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 bg-emerald-400" />
-                  <span>[ 03 // MODEL RETRIEVAL & GROUND TRUTH VALIDATION ]</span>
-                </div>
-                <span className="text-[10px] text-zinc-500">6/6 verified landmark court cases covered in Top-3 candidates</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                
-                {/* Left Card: Predicted State & Ground Truth Confirmation */}
-                <div className="p-5 bg-[#121212] border border-white/15 flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                      <span className="text-zinc-400 text-[10px] uppercase tracking-wider">
-                        PREDICTED WITHDRAWAL STATE (TOP-1):
-                      </span>
-                      <span className="text-[9px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-                        {currentCase.predictedConfidence}% CALIBRATED
-                      </span>
-                    </div>
-                    <div className="text-white font-bold text-2xl mt-3 tracking-wide flex items-center gap-2">
-                      <span>{currentCase.predictedStateTop1}</span>
-                      <span className="h-2 w-2 bg-emerald-400 rounded-none inline-block" />
-                    </div>
-                    <p className="text-[11px] text-zinc-400 mt-1">
-                      Identified as primary operational cash-out vector based on complaint feature synthesis.
-                    </p>
-                  </div>
-
-                  <div className="pt-3 border-t border-white/10 space-y-2">
-                    <div className="text-emerald-400 text-xs font-semibold flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                      <span>Ground Truth Match: {currentCase.groundTruthState}</span>
-                    </div>
-                    <div className="text-[11px] text-zinc-400">
-                      CCTV Location: <strong className="text-zinc-200">{currentCase.groundTruthLocation}</strong>
-                    </div>
-                    <div className="text-[10px] text-zinc-500">
-                      Status: <span className="text-emerald-400 font-mono">{currentMeta.groundTruthRankText}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Card: Top-3 Probability Distribution */}
-                <div className="p-5 bg-[#121212] border border-white/15 space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                    <span className="text-zinc-400 text-[10px] uppercase tracking-wider">
-                      TOP-3 STATE CANDIDATE RETRIEVAL DISTRIBUTION:
-                    </span>
-                    <span className="text-[9px] text-zinc-500 font-mono">
-                      (28+ States Evaluated)
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 font-mono text-xs pt-1">
-                    {currentCase.top3States?.map((st, i) => {
-                      const isGroundTruth = st.state.toLowerCase() === (currentCase.groundTruthState || currentMeta.muleState).toLowerCase();
-                      return (
-                        <div key={i} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className={i === 0 ? 'text-emerald-400 font-bold flex items-center gap-1.5' : 'text-zinc-300 flex items-center gap-1.5'}>
-                              <span className={`h-1.5 w-1.5 ${i === 0 ? 'bg-emerald-400' : isGroundTruth ? 'bg-[#ceff00]' : 'bg-zinc-600'} rounded-none inline-block`} />
-                              <span>{i + 1}. {st.state}</span>
-                              {isGroundTruth && (
-                                <span className="text-[9px] text-emerald-400 font-normal ml-1">
-                                  [GROUND TRUTH]
-                                </span>
-                              )}
-                            </span>
-                            <span className={i === 0 ? 'text-emerald-300 font-bold' : isGroundTruth ? 'text-[#ceff00] font-bold' : 'text-zinc-400'}>
-                              {Math.round(st.prob * 100)}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full bg-black border border-white/10">
-                            <div 
-                              className={`h-full ${i === 0 ? 'bg-emerald-400' : isGroundTruth ? 'bg-[#ceff00]' : 'bg-zinc-600'}`}
-                              style={{ width: `${Math.round(st.prob * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="pt-2 border-t border-white/10 text-[10px] text-zinc-400 flex items-center justify-between">
-                    <span>Validation Baseline (5-Fold CV):</span>
-                    <span className="text-emerald-400 font-mono font-semibold">85.9% Top-1 | 94.4% Top-3</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* 5. Live Model Execution Benchmark (Wired to Real API / apiService) */}
-            <div className="p-5 bg-[#121212] border border-white/20 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-[#ceff00]" />
-                    <span>[ 04 // LIVE MODEL EXECUTION BENCHMARK ]</span>
-                  </div>
-                  <div className="text-zinc-400 text-[11px] mt-0.5">
-                    Execute real-time mathematical inference and compute dynamic SHAP explainability vectors for Case {currentCase.id}.
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleRunLiveInference(currentCase)}
-                  disabled={isRunningLiveInference}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs uppercase flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer self-start sm:self-auto"
-                >
-                  {isRunningLiveInference ? (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      <span>EXECUTING PIPELINE...</span>
-                    </>
+              {/* Status Bar */}
+              <div className="p-3 bg-zinc-900 text-white flex flex-wrap items-center justify-between gap-3 shadow-xs font-mono text-xs">
+                <div className="flex items-center gap-2.5">
+                  {isLoadingInference ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-amber-400" />
                   ) : (
-                    <>
-                      <Play className="h-3.5 w-3.5 fill-black" />
-                      <span>RUN LIVE INFERENCE (16ms)</span>
-                    </>
+                    <span className="h-2 w-2 bg-emerald-400 rounded-none animate-pulse" />
                   )}
-                </button>
+                  <span className="font-bold">
+                    {isLoadingInference ? 'QUERYING RAILWAY ML SERVICE (FASTAPI)...' : `INFERENCE EXECUTED IN ${liveResult?.latencyMs || 18} MS`}
+                  </span>
+                  {liveResult?.timestamp && (
+                    <span className="text-zinc-400 text-[10px]">({liveResult.timestamp})</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-zinc-400">BACKEND:</span>
+                  <span className="bg-white/10 text-white px-2 py-0.5 border border-white/20 font-bold">
+                    {liveResult?.isFallback ? 'Verified Mathematical Engine' : 'Production Railway ML Service'}
+                  </span>
+                </div>
               </div>
 
-              {/* Dynamic Live Inference Output */}
-              {liveInferenceResult && (
-                <div className="p-4 bg-black border border-emerald-500/50 font-mono text-xs space-y-4 text-zinc-300 animate-in fade-in">
+              {/* In-Flight Skeleton or Live Results Grid */}
+              {isLoadingInference && !liveResult ? (
+                <div className="p-12 bg-white border border-black/15 shadow-sm text-center space-y-3">
+                  <RefreshCw className="h-6 w-6 animate-spin text-zinc-800 mx-auto" />
+                  <div className="text-sm font-bold text-zinc-900">Querying Cybercast Machine Learning Model...</div>
+                  <div className="text-xs text-zinc-600 max-w-md mx-auto">
+                    Transmitting complaint parameters for {currentCase.id} to live Railway ML endpoint (https://184model-production.up.railway.app/predict).
+                  </div>
+                </div>
+              ) : liveResult ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
                   
-                  {/* Status Banner */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                    <div className="text-emerald-400 font-bold flex items-center gap-2">
-                      <Check className="h-4 w-4" />
-                      <span>
-                        INFERENCE COMPLETE IN {liveInferenceResult.latencyMs} MS (TIMESTAMP: {liveInferenceResult.timestamp})
-                      </span>
-                    </div>
-                    <span className="text-[9px] px-2 py-0.5 bg-zinc-900 border border-white/20 text-[#ceff00] uppercase">
-                      {liveInferenceResult.isFallback ? 'Verified Mathematical Model' : 'Production Railway ML Service'}
-                    </span>
-                  </div>
-
-                  {/* Summary Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-[11px]">
-                    <div className="p-3 bg-zinc-950 border border-white/10">
-                      <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">Top-1 Predicted State:</span>
-                      <span className="text-white font-bold text-base mt-0.5 block">{liveInferenceResult.predictedState}</span>
-                    </div>
-                    <div className="p-3 bg-zinc-950 border border-white/10">
-                      <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">Calibrated Confidence:</span>
-                      <span className="text-emerald-400 font-bold text-base mt-0.5 block">{liveInferenceResult.confidence}%</span>
-                    </div>
-                    <div className="p-3 bg-zinc-950 border border-white/10">
-                      <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">Predicted Cash-Out Zone:</span>
-                      <span className="text-zinc-200 font-semibold text-xs mt-0.5 block truncate">
-                        {liveInferenceResult.zone.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <div className="p-3 bg-zinc-950 border border-white/10">
-                      <span className="text-zinc-500 block text-[9px] uppercase tracking-wider">Interdiction Countdown:</span>
-                      <span className="text-amber-400 font-semibold text-xs mt-0.5 block">
-                        {liveInferenceResult.estimatedTimeWindowHours} Hours ({liveInferenceResult.timeUrgency.split(' ')[0]})
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SHAP Feature Attributions */}
-                  <div className="pt-2 border-t border-white/10 space-y-2">
-                    <div className="text-[10px] text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                      <span className="text-white font-bold">Dynamic SHAP Feature Attributions:</span>
-                      <span className="text-zinc-500">{liveInferenceResult.shapExplanation.summary}</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                      {liveInferenceResult.shapExplanation.topFactors.map((factor, idx) => (
-                        <div key={idx} className="p-3 bg-zinc-900/60 border border-white/10 space-y-1">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-bold text-zinc-300">{factor.feature}</span>
-                            <span className={`font-mono font-bold ${factor.direction === 'positive' ? 'text-emerald-400' : 'text-zinc-400'}`}>
-                              {factor.direction === 'positive' ? '+' : '-'}{factor.impactPercentage}%
-                            </span>
-                          </div>
-                          <div className="text-[9.5px] text-zinc-400 leading-relaxed">
-                            {factor.description}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Recommended Law Enforcement Actions */}
-                  {liveInferenceResult.recommendedActions && liveInferenceResult.recommendedActions.length > 0 && (
-                    <div className="pt-2 border-t border-white/10 space-y-1.5">
-                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold text-emerald-400">
-                        Automated Interdiction Protocols Dispatched:
+                  {/* Left Column: Primary Predicted State & Ground Truth Corroboration */}
+                  <div className="p-6 bg-white border border-black/15 shadow-sm flex flex-col justify-between space-y-5">
+                    <div>
+                      <div className="flex items-center justify-between pb-2.5 border-b border-black/10">
+                        <span className="text-zinc-600 text-[10px] uppercase font-bold tracking-wider">
+                          PRIMARY PREDICTED STATE (RANK 1):
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 bg-zinc-100 text-zinc-900 border border-black/15 font-mono font-bold">
+                          {liveResult.confidence}% MODEL CONFIDENCE
+                        </span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
-                        {liveInferenceResult.recommendedActions.map((action, idx) => (
-                          <div key={idx} className="p-2 bg-zinc-950 border border-emerald-500/30 text-zinc-300 flex items-start gap-1.5">
-                            <span className="text-emerald-400 font-bold">0{idx + 1}.</span>
+
+                      <div className="text-zinc-900 font-bold text-3xl mt-3 tracking-tight">
+                        {liveResult.predictedState}
+                      </div>
+
+                      <p className="text-[11px] text-zinc-600 mt-1.5 leading-relaxed">
+                        Model identified {liveResult.predictedState} as the highest probability spatial interdiction target for Case {currentCase.id}.
+                      </p>
+                    </div>
+
+                    {/* Ground-Truth Evaluation Block */}
+                    <div className="pt-4 border-t border-black/10 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-600 uppercase font-bold tracking-wider">
+                          Judicial Ground Truth Corroboration:
+                        </span>
+                        {matchEval && (
+                          <span className={`text-[10px] px-2 py-0.5 font-mono font-bold border ${
+                            matchEval.isTop1
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : matchEval.isMatch
+                              ? 'bg-blue-50 text-blue-800 border-blue-300'
+                              : 'bg-zinc-100 text-zinc-700 border-black/15'
+                          }`}>
+                            {matchEval.badgeText}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-zinc-50 border border-black/10 text-zinc-800 text-[11px] leading-relaxed">
+                        {matchEval?.summary}
+                      </div>
+
+                      <div className="pt-1 text-[11px] text-zinc-600 flex items-center justify-between">
+                        <span>Forensic CCTV Location:</span>
+                        <strong className="text-zinc-900 font-mono">{currentCase.groundTruthLocation}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Candidate State Probabilities Distribution */}
+                  <div className="p-6 bg-white border border-black/15 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-black/10">
+                      <div>
+                        <span className="text-zinc-900 text-[11px] font-bold uppercase tracking-wider block">
+                          TOP CANDIDATE STATES (CALIBRATED PROBABILITIES)
+                        </span>
+                        <span className="text-[9.5px] text-zinc-500">
+                          Evaluated across 28+ Indian States and Union Territories
+                        </span>
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 bg-zinc-100 text-zinc-700 border border-black/15 font-mono">
+                        LIVE API RESULT
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 font-mono text-xs pt-1">
+                      {(liveResult.topPredictedStates || []).map((st, i) => {
+                        const isGroundTruth = (st.state || '').toLowerCase().trim() === (currentCase.groundTruthState || '').toLowerCase().trim();
+                        const probPct = Math.round((st.probability || 0) * 100);
+
+                        return (
+                          <div key={i} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-zinc-900 font-bold flex items-center gap-1.5">
+                                <span className={`h-2 w-2 ${isGroundTruth ? 'bg-emerald-600' : 'bg-zinc-800'} rounded-none inline-block`} />
+                                <span>{st.rank || i + 1}. {st.state}</span>
+                                {isGroundTruth && (
+                                  <span className="text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-800 border border-emerald-300 font-normal ml-1">
+                                    [JUDICIAL GROUND TRUTH]
+                                  </span>
+                                )}
+                              </span>
+                              <span className={`font-bold ${isGroundTruth ? 'text-emerald-700' : 'text-zinc-900'}`}>
+                                {((st.probability || 0) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+
+                            <div className="h-2 w-full bg-zinc-100 border border-black/10">
+                              <div
+                                className={`h-full ${isGroundTruth ? 'bg-emerald-600' : 'bg-zinc-800'} transition-all duration-500`}
+                                style={{ width: `${Math.max(probPct, 3)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-2.5 border-t border-black/10 text-[10.5px] text-zinc-600 flex items-center justify-between">
+                      <span>Stratified 5-Fold CV Baseline:</span>
+                      <span className="text-zinc-900 font-mono font-bold">85.9% Top-1 | 94.4% Top-3</span>
+                    </div>
+                  </div>
+
+                </div>
+              ) : (
+                <div className="p-10 bg-white border border-black/15 shadow-sm text-center space-y-3">
+                  <Cpu className="h-6 w-6 text-zinc-600 mx-auto" />
+                  <div className="text-sm font-bold text-zinc-900">Live ML Inference Ready for Case {currentCase.id}</div>
+                  <div className="text-xs text-zinc-500 max-w-md mx-auto">
+                    Complaint feature vector ingested. Click below to trigger live FastAPI ML inference on Railway.
+                  </div>
+                  <button
+                    onClick={() => executeLivePrediction(currentCase, true)}
+                    className="px-4 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-mono font-bold uppercase transition-colors cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    <span>Run Live Inference</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Operational Interdiction Parameters (Live from Model - Single Unified Specification Box) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                  <span className="h-2 w-2 bg-black rounded-none" />
+                  <span>[ 03 // OPERATIONAL INTERDICTION PARAMETERS ]</span>
+                </div>
+                <span className="text-[10px] text-zinc-600 font-mono">Actionable tactical parameters calculated live</span>
+              </div>
+
+              {liveResult ? (
+                <div className="bg-white border border-black/15 shadow-sm divide-y md:divide-y-0 md:divide-x divide-black/10 grid grid-cols-1 md:grid-cols-3 text-xs">
+                  
+                  {/* Column 1: Cash-Out Facility & Zone */}
+                  <div className="p-5 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between pb-1 border-b border-black/10">
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <Cpu className="h-3.5 w-3.5 text-zinc-900" />
+                          Extraction Facility
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-zinc-100 border border-black/15 text-zinc-800 text-[9px] font-mono font-bold">
+                          STAGE 1 ZONE
+                        </span>
+                      </div>
+
+                      <div className="text-zinc-900 font-bold text-sm">
+                        {(liveResult.zone || 'Bank_Branch_Counter').replace(/_/g, ' ')}
+                      </div>
+
+                      <p className="text-zinc-600 text-[11px] leading-relaxed">
+                        {liveResult.isBankCounter
+                          ? `Stolen capital (${currentCase.amountFormatted}) exceeds statutory daily ATM limits (₹20,000–₹50,000), compelling syndicates toward bank branch counter withdrawal with forged cheques.`
+                          : `Stolen capital indicates automated ATM rapid dispersal network across standalone kiosks.`}
+                      </p>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-600 flex items-center justify-between">
+                      <span>Channel Classification:</span>
+                      <strong className="text-zinc-900">{liveResult.isBankCounter ? 'Branch Counter' : 'ATM Network'}</strong>
+                    </div>
+                  </div>
+
+                  {/* Column 2: Interdiction Time Window */}
+                  <div className="p-5 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between pb-1 border-b border-black/10">
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-zinc-900" />
+                          Interdiction Window
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-300 text-amber-800 text-[9px] font-mono font-bold">
+                          VELOCITY
+                        </span>
+                      </div>
+
+                      <div className="text-zinc-900 font-bold text-sm">
+                        {liveResult.estimatedTimeWindowHours || 3.5} Hours Countdown
+                      </div>
+
+                      <p className="text-zinc-600 text-[11px] leading-relaxed">
+                        {liveResult.timeUrgency || 'CRITICAL'}. Modus operandi dynamics require immediate freeze coordination before cross-state laundering completes.
+                      </p>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-600 flex items-center justify-between">
+                      <span>Urgency Status:</span>
+                      <strong className="text-amber-800 font-mono">{(liveResult.timeUrgency || 'CRITICAL').split(' ')[0]}</strong>
+                    </div>
+                  </div>
+
+                  {/* Column 3: Recommended Interdiction Actions */}
+                  <div className="p-5 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between pb-1 border-b border-black/10">
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <Shield className="h-3.5 w-3.5 text-zinc-900" />
+                          Actionable Protocols
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-[9px] font-mono font-bold">
+                          LAW ENFORCEMENT
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {(liveResult.recommendedActions || []).slice(0, 2).map((action, idx) => (
+                          <div key={idx} className="p-2 bg-zinc-50 border border-black/10 text-zinc-800 text-[10.5px] flex items-start gap-1.5">
+                            <span className="font-bold text-zinc-900 flex-shrink-0">0{idx + 1}.</span>
                             <span>{action}</span>
                           </div>
                         ))}
                       </div>
                     </div>
-                  )}
+
+                    <div className="pt-2.5 border-t border-black/10 text-[10px] text-zinc-600 flex items-center justify-between">
+                      <span>Protocol Routing:</span>
+                      <strong className="text-zinc-900">CFCFRMS / State Cyber Cell</strong>
+                    </div>
+                  </div>
 
                 </div>
+              ) : (
+                <div className="p-8 bg-white border border-black/15 shadow-sm text-center text-xs text-zinc-500 font-mono">
+                  Loading operational parameters from live model...
+                </div>
               )}
+            </div>
 
+            {/* 4. Dynamic SHAP Explainability & Risk Attribution */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold uppercase tracking-wider text-black flex items-center gap-2">
+                  <span className="h-2 w-2 bg-black rounded-none" />
+                  <span>[ 04 // DYNAMIC SHAP FEATURE ATTRIBUTIONS &amp; RISK DRIVERS ]</span>
+                </div>
+                <span className="text-[10px] text-zinc-600 font-mono">Mathematical Shapley feature attributions</span>
+              </div>
+
+              {liveResult ? (
+                <div className="p-6 bg-white border border-black/15 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-black/10">
+                    <div className="text-xs text-zinc-700">
+                      <strong className="text-zinc-900 font-bold">Model Attribution Summary:</strong> {liveResult.shapExplanation?.summary || 'Attribution vectors computed from complaint features.'}
+                    </div>
+                    <span className="text-[10px] text-zinc-600 font-mono">
+                      Base Probability: {liveResult.shapExplanation?.baseProbability || 48}% → Final: {liveResult.confidence}%
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(liveResult.shapExplanation?.topFactors || []).map((factor, idx) => (
+                      <div key={idx} className="p-4 bg-zinc-50 border border-black/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-zinc-900 text-xs">{factor.feature}</span>
+                          <span className={`font-mono font-bold text-xs px-1.5 py-0.5 border ${
+                            factor.direction === 'positive'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : 'bg-zinc-100 text-zinc-700 border-black/15'
+                          }`}>
+                            {factor.direction === 'positive' ? '+' : '-'}{factor.impactPercentage}%
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-zinc-600 font-mono">
+                          Value: <span className="text-zinc-900 font-semibold">{factor.value}</span>
+                        </div>
+                        <p className="text-[11px] text-zinc-600 leading-relaxed pt-1 border-t border-black/5">
+                          {factor.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 bg-white border border-black/15 shadow-sm text-center text-xs text-zinc-500 font-mono">
+                  Loading SHAP explainability factors from live model...
+                </div>
+              )}
             </div>
 
           </div>
         )}
 
-        {/* Provenance Footer */}
-        <div className="p-4 bg-[#141414] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-zinc-400">
-          <div className="flex items-center gap-2">
-            <Database className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-            <span className="break-all">Dataset Provenance: <strong className="break-all">Cyber_Singham_Real_Life_Cases_Pack/cyber_singham_real_case_records.csv</strong></span>
+        {/* TAB 2: GROUND TRUTH LEGAL EVIDENCE */}
+        {activeTab === 'provenance' && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            {/* Case Overview Card */}
+            <div className="p-6 bg-white border border-black/15 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 pb-3 border-b border-black/10 mb-4">
+                <div className="flex items-center gap-3">
+                  <span>CASE REGISTRY: <strong className="text-zinc-900 font-bold">{currentCase.id}</strong></span>
+                  <span className="text-zinc-400">•</span>
+                  <span>STATUS: <strong className="text-emerald-800 bg-emerald-50 px-2 py-0.5 border border-emerald-300 font-bold">VERIFIED HIGH COURT RECORD</strong></span>
+                </div>
+                <div>
+                  JUDGMENT DATE: <strong className="text-zinc-900 font-semibold">{currentCase.decisionDate}</strong>
+                </div>
+              </div>
+
+              <h2 className="text-lg sm:text-xl font-bold text-zinc-900 leading-snug">
+                {currentCase.caseTitle}
+              </h2>
+
+              <div className="mt-3 text-xs text-zinc-600 flex flex-wrap items-center gap-6">
+                <div>Court Jurisdiction: <strong className="text-zinc-900 font-semibold">{currentCase.courtName}</strong></div>
+                <div>Fraud Modus: <strong className="text-amber-800 font-semibold">{currentCase.fraudType}</strong></div>
+                <div>Total Defrauded Funds: <strong className="text-zinc-900 font-bold">{currentCase.amountFormatted}</strong></div>
+              </div>
+
+              {currentCase.courtUrl && (
+                <div className="mt-4 pt-3.5 border-t border-black/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <a
+                    href={currentCase.courtUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 underline text-xs font-semibold break-all"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                    <span className="break-all">View Official Court Record on Indian Kanoon ({currentCase.courtUrl}) ↗</span>
+                  </a>
+                  <span className="text-[10px] text-zinc-500 shrink-0 font-mono">Judicial Record Authenticated</span>
+                </div>
+              )}
+            </div>
+
+            {/* Side-by-Side: Citizen Complaint vs Physical Ground Truth */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* Left Column: Citizen Complaint & Network Pattern */}
+              <div className="p-6 bg-white border border-black/15 shadow-sm space-y-4">
+                <div className="text-xs font-bold uppercase tracking-wider text-zinc-900 flex items-center gap-2 border-b border-black/10 pb-3">
+                  <div className="h-5 w-5 bg-zinc-50 border border-black/10 flex items-center justify-center p-0.5">
+                    <Image
+                      src="/logos/ncrb.png"
+                      alt="NCRB"
+                      width={16}
+                      height={16}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <span>1. CITIZEN COMPLAINT &amp; NETWORK PATTERN</span>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Incident Location (Victim Filing):</span>
+                    <span className="text-zinc-900 font-bold text-sm mt-0.5 block">{currentCase.victimLocation}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Stolen Funds In Transit:</span>
+                    <span className="text-zinc-900 font-bold font-mono text-base mt-0.5 block">{currentCase.amountFormatted}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Mule Account Routing Network Pattern:</span>
+                    <div className="p-3.5 bg-zinc-50 border border-black/10 text-zinc-800 mt-1 leading-relaxed text-[11px] font-mono">
+                      {currentCase.networkPattern}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">FIR / Judicial Case Notes:</span>
+                    <div className="p-3.5 bg-zinc-50 border border-black/10 text-zinc-700 mt-1 text-[11px] leading-relaxed">
+                      {currentCase.notes}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Actual Cash-Out Ground Truth */}
+              <div className="p-6 bg-white border border-black/15 shadow-sm space-y-4">
+                <div className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center justify-between border-b border-black/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-5 bg-zinc-50 border border-black/10 flex items-center justify-center p-0.5">
+                      <Image
+                        src="/logos/rbi.svg"
+                        alt="RBI"
+                        width={16}
+                        height={16}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                    <span>2. PHYSICAL CASH-OUT GROUND TRUTH</span>
+                  </div>
+                  <span className="bg-emerald-50 text-emerald-800 text-[9px] px-2 py-0.5 border border-emerald-300 font-bold">
+                    CCTV &amp; FORENSICS VERIFIED
+                  </span>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Actual ATM / Bank Branch Location:</span>
+                    <span className="text-zinc-900 font-bold font-mono text-sm mt-0.5 block">{currentCase.groundTruthLocation}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Physical Cash Extracted:</span>
+                    <span className="text-zinc-900 font-semibold mt-0.5 block">{currentCase.groundTruthAmount}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-semibold">Judicial CCTV &amp; Location Evidence:</span>
+                    <div className="p-3.5 bg-zinc-50 border border-black/10 text-zinc-800 mt-1 text-[11px] leading-relaxed">
+                      {currentCase.cctvEvidence}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-black/10 flex flex-wrap items-center justify-between gap-2">
+                    {currentCase.groundTruthCoords ? (
+                      <Link
+                        href={`/dashboard?lat=${currentCase.groundTruthCoords[0]}&lng=${currentCase.groundTruthCoords[1]}&case=${currentCase.id}`}
+                        className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>[ VIEW ON RADAR MAP → ]</span>
+                      </Link>
+                    ) : (
+                      <span className="text-zinc-500 text-[10px]">Location coordinates preserved in casefile</span>
+                    )}
+
+                    <span className="text-[11px] text-zinc-600">
+                      Destination State: <strong className="text-zinc-900 font-bold">{currentCase.groundTruthState}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/collab" className="text-zinc-300 hover:text-[#ceff00] underline">
-              Case Collaboration Portal →
+        )}
+
+        {/* SECTION F: Dataset Provenance Footer (White Platinum styling) */}
+        <div className="p-4.5 bg-white border border-black/15 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-600">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-zinc-500 shrink-0" />
+            <span className="break-all font-mono text-[11px]">
+              Dataset Provenance: <strong className="text-zinc-900 font-semibold">Cyber_Singham_Real_Life_Cases_Pack/cyber_singham_real_case_records.csv</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-5 font-mono text-xs">
+            <Link href="/collab" className="text-zinc-800 hover:text-black font-semibold underline flex items-center gap-1">
+              <span>Case Collaboration Portal</span>
+              <ArrowRight className="h-3 w-3" />
             </Link>
-            <Link href="/dashboard" className="text-zinc-300 hover:text-emerald-400 underline">
-              Radar Command Center →
+            <Link href="/dashboard" className="text-zinc-800 hover:text-black font-semibold underline flex items-center gap-1">
+              <span>Radar Command Center</span>
+              <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
         </div>
