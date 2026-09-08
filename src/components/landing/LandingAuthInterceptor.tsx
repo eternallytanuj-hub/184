@@ -9,7 +9,7 @@ export interface LandingAuthInterceptorProps {
   children: React.ReactNode;
 }
 
-const PROTECTED_ROUTES = ['/dashboard', '/collab'];
+const PROTECTED_ROUTES = ['/dashboard', '/collab', '/benchmarks'];
 
 /**
  * Checks if a destination route targets a protected path (/dashboard, /collab, etc.)
@@ -159,7 +159,7 @@ export default function LandingAuthInterceptor({ children }: LandingAuthIntercep
       if (!target) return;
 
       const anchor = target.closest(
-        'a[href^="/dashboard"], a[href^="/collab"]'
+        'a[href^="/dashboard"], a[href^="/collab"], a[href^="/benchmarks"]'
       ) as HTMLAnchorElement | null;
       if (!anchor) return;
 

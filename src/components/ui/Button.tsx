@@ -41,9 +41,7 @@ export default function Button({
   const content = (
     <>
       <span className="relative z-10 flex items-center gap-2">
-        {variant === 'bracket' && <span className="text-zinc-500 font-mono">[</span>}
         <span className="font-semibold">{children}</span>
-        {variant === 'bracket' && <span className="text-zinc-500 font-mono">]</span>}
       </span>
       {icon ? (
         <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-0.5">

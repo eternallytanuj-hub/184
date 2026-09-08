@@ -149,6 +149,7 @@ export default function HeaderNav() {
   };
 
   return (
+    <>
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#0c0c0c]/90 backdrop-blur-md border-b border-white/10">
       <div className="mx-auto h-full max-w-[1600px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-full items-center justify-between gap-4">
@@ -221,7 +222,7 @@ export default function HeaderNav() {
               className="px-3 py-1.5 border border-white/20 bg-black/80 hover:border-neon hover:text-neon text-zinc-300 font-mono text-[10.5px] uppercase tracking-wider transition-colors rounded-none flex items-center gap-1.5"
             >
               <span className="h-1.5 w-1.5 bg-emerald-400" />
-              <span>[ COURT BENCHMARKS ]</span>
+              <span>COURT BENCHMARKS</span>
             </Link>
 
             <Link
@@ -229,7 +230,7 @@ export default function HeaderNav() {
               className="px-3 py-1.5 border border-white/20 bg-black/80 hover:border-neon text-zinc-300 hover:text-neon font-mono text-[10.5px] uppercase tracking-wider transition-colors rounded-none flex items-center gap-1.5"
             >
               <span className="h-1.5 w-1.5 bg-neon" />
-              <span>[ I4C COLLAB ]</span>
+              <span>I4C COLLAB</span>
             </Link>
 
             <Link
@@ -271,7 +272,7 @@ export default function HeaderNav() {
                   className="px-2.5 py-1.5 border border-white/15 bg-black/80 hover:border-red-500/50 hover:text-red-400 text-zinc-400 font-mono text-[10px] uppercase tracking-wider transition-colors rounded-none cursor-pointer"
                   title="Sign out of CyberCast session"
                 >
-                  [ SIGN OUT ]
+                  SIGN OUT
                 </button>
               </div>
             ) : (
@@ -290,7 +291,7 @@ export default function HeaderNav() {
                     className="h-3.5 w-auto filter invert brightness-200"
                   />
                 </div>
-                <span>[ OFFICER LOGIN ]</span>
+                <span>OFFICER LOGIN</span>
               </button>
             )}
           </div>
@@ -303,7 +304,7 @@ export default function HeaderNav() {
               className="p-2 text-zinc-400 hover:text-white font-mono text-xs uppercase border border-white/10"
               aria-label="Toggle Navigation Menu"
             >
-              {mobileMenuOpen ? '[ CLOSE ✕ ]' : '[ MENU ☰ ]'}
+              {mobileMenuOpen ? 'CLOSE ✕' : 'MENU ☰'}
             </button>
           </div>
 
@@ -319,14 +320,14 @@ export default function HeaderNav() {
               onClick={() => setMobileMenuOpen(false)}
               className="p-2 border border-white/10 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 text-center"
             >
-              [ TECH STACK ]
+              TECH STACK
             </Link>
             <Link
               href="#footer"
               onClick={() => setMobileMenuOpen(false)}
               className="p-2 border border-white/10 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 text-center"
             >
-              [ TEAM ROSTER ]
+              TEAM ROSTER
             </Link>
             <Link
               href="/benchmarks"
@@ -334,7 +335,7 @@ export default function HeaderNav() {
               className="p-2 border border-white/15 bg-black/60 hover:border-neon hover:text-neon text-zinc-300 font-bold col-span-2 text-center flex items-center justify-center gap-2"
             >
               <span className="h-1.5 w-1.5 bg-emerald-400" />
-              <span>[ COURT BENCHMARKS ]</span>
+              <span>COURT BENCHMARKS</span>
             </Link>
           </div>
           <div className="pt-2 space-y-2">
@@ -362,7 +363,7 @@ export default function HeaderNav() {
                   }}
                   className="w-full flex items-center justify-center p-2.5 bg-black border border-red-500/40 hover:border-red-400 text-red-400 text-xs uppercase font-bold tracking-wider transition-colors rounded-none cursor-pointer"
                 >
-                  [ SIGN OUT ]
+                  SIGN OUT
                 </button>
               </div>
             ) : (
@@ -383,7 +384,7 @@ export default function HeaderNav() {
                     className="h-3.5 w-auto filter invert brightness-200"
                   />
                 </div>
-                <span>[ OFFICER LOGIN ]</span>
+                <span>OFFICER LOGIN</span>
               </button>
             )}
             <Link
@@ -392,7 +393,7 @@ export default function HeaderNav() {
               className="w-full flex items-center justify-center gap-2 p-2.5 bg-black border border-white/20 hover:border-neon text-zinc-300 hover:text-neon text-xs uppercase font-bold transition-colors"
             >
               <span className="h-1.5 w-1.5 bg-neon" />
-              <span>[ I4C COLLAB SYSTEM ]</span>
+              <span>I4C COLLAB SYSTEM</span>
             </Link>
             <Link
               href="/dashboard"
@@ -406,14 +407,16 @@ export default function HeaderNav() {
         </div>
       )}
 
-      {/* Login Authentication Modal */}
-      {showAuthModal && (
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onLoginSuccess={() => setShowAuthModal(false)}
-        />
-      )}
+      {/* Login Authentication Modal - Moved outside header to avoid backdrop-blur creating a new stacking context */}
     </header>
+
+    {showAuthModal && (
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={() => setShowAuthModal(false)}
+      />
+    )}
+    </>
   );
 }
