@@ -12,7 +12,12 @@ const dashboardDataModule = await import('../src/data/dashboardData.ts');
 const apiServiceModule = await import('../src/lib/apiService.ts');
 
 const { ACTIVE_INCIDENTS_DATA } = dashboardDataModule;
-const { predictWithdrawal, getSHAPExplanation } = apiServiceModule;
+const {
+  predictWithdrawal,
+  getSHAPExplanation,
+  getSingleDistrictRisk,
+  getDistrictRiskScores,
+} = apiServiceModule;
 
 // The 6 verified cases under test
 const EXPECTED_CASE_IDS = ['CS-001', 'CS-012', 'CS-015', 'CS-011', 'CS-013', 'CS-002'];
@@ -465,7 +470,78 @@ test('6. Production Runtime HTTP Response on /benchmarks', async (t) => {
       html.includes('Cyber_Singham_Real_Life_Cases_Pack'),
       'Rendered page must cite dataset provenance'
     );
+
+    // 6. Verify District Prediction & Spatial Hotspot Corridor in HTML DOM
+    assert.ok(
+      html.includes('PREDICTED CASH-OUT DISTRICT &amp; SPATIAL HOTSPOT CORRIDOR') ||
+      html.includes('PREDICTED CASH-OUT DISTRICT & SPATIAL HOTSPOT CORRIDOR') ||
+      html.includes('PREDICTED CASH-OUT DISTRICT'),
+      'Rendered page must contain Section 03 Predicted Cash-Out District'
+    );
+    assert.ok(
+      html.includes('964 DISTRICTS INDEXED'),
+      'Rendered page must contain 964 Districts Indexed tag'
+    );
+    assert.ok(
+      html.includes('DISTRICT_MODEL'),
+      'Rendered page must cite DISTRICT_MODEL spatial localization engine'
+    );
   } finally {
     server.kill();
   }
+});
+
+// =========================================================================
+// 7. District-Level Spatial Prediction & Hotspot Localization Tests
+// =========================================================================
+test('7. District-Level Prediction & Hotspot Localization Across All 6 Cases', async (t) => {
+  const verifiedCases = ACTIVE_INCIDENTS_DATA.filter((c) => c.isRealCourtCase);
+
+  const districtFixtures = {
+    'CS-001': { victimDist: 'Central', targetState: 'Uttar Pradesh', targetDist: 'Bahraich' },
+    'CS-012': { victimDist: 'Central', targetState: 'Jharkhand', targetDist: 'Dhanbad' },
+    'CS-015': { victimDist: 'South', targetState: 'Rajasthan', targetDist: 'Jaipur North' },
+    'CS-011': { victimDist: 'West', targetState: 'Uttar Pradesh', targetDist: 'Gautambudh Nagar' },
+    'CS-013': { victimDist: 'Gurugram', targetState: 'Uttar Pradesh', targetDist: 'Ghaziabad' },
+    'CS-002': { victimDist: 'North', targetState: 'Punjab', targetDist: 'CP Jalandhar' },
+  };
+
+  for (const caseItem of verifiedCases) {
+    const fixture = districtFixtures[caseItem.id];
+    assert.ok(fixture, `Fixture must exist for ${caseItem.id}`);
+
+    // Ingest complaint with victim_district
+    const pred = await predictWithdrawal({
+      complaint_id: `DIST-${caseItem.id}`,
+      fraud_type: caseItem.fraudType,
+      amount_stolen_inr: caseItem.amount,
+      victim_state: fixture.victimDist === 'Gurugram' ? 'Haryana' : 'Delhi (NCT)',
+      victim_district: fixture.victimDist,
+      mule_account_state: fixture.targetState,
+      mule_account_bank: 'SBI',
+    });
+
+    assert.ok(pred, `Prediction must exist for ${caseItem.id}`);
+    assert.ok(pred.origin_district_risk, `origin_district_risk must be populated when victim_district provided in ${caseItem.id}`);
+    assert.equal(pred.origin_district_risk.district, fixture.victimDist, `Origin district must match for ${caseItem.id}`);
+    assert.ok(typeof pred.origin_district_risk.risk_score === 'number', `risk_score must be number for ${caseItem.id}`);
+    assert.ok(pred.origin_district_risk.risk_tier, `risk_tier must be defined for ${caseItem.id}`);
+
+    // Query target district risk score
+    const targetDistRisk = await getSingleDistrictRisk(fixture.targetState, fixture.targetDist);
+    assert.ok(targetDistRisk, `Target district ${fixture.targetDist} in ${fixture.targetState} must resolve risk`);
+    assert.ok(typeof targetDistRisk.risk_score === 'number', `Target district risk_score must be number for ${caseItem.id}`);
+    assert.ok(['Critical', 'High', 'Moderate', 'Low'].includes(targetDistRisk.risk_tier), `Target district risk_tier must be valid category for ${caseItem.id}`);
+  }
+
+  // Verify state district risk spectrum
+  const upDistricts = await getDistrictRiskScores('Uttar Pradesh');
+  assert.ok(Array.isArray(upDistricts) && upDistricts.length > 0, 'getDistrictRiskScores must return districts for Uttar Pradesh');
+
+  // Verify state normalization for Delhi and direct single district queries
+  const delhiDistricts = await getDistrictRiskScores('Delhi');
+  assert.ok(Array.isArray(delhiDistricts) && delhiDistricts.length > 0, 'getDistrictRiskScores must normalize Delhi to Delhi (NCT)');
+  const centralDelhi = await getSingleDistrictRisk('Delhi', 'Central');
+  assert.ok(centralDelhi, 'getSingleDistrictRisk must resolve Central district for Delhi');
+  assert.equal(centralDelhi.risk_score, 30.2, 'Central Delhi risk_score must match 30.2');
 });

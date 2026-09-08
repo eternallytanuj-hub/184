@@ -241,6 +241,40 @@ export async function getModelHealth(): Promise<ModelHealthStatus> {
 }
 
 /**
+ * Normalizes Indian state and union territory names to match official 964-district DB keys
+ */
+export function normalizeStateName(state?: string): string {
+  if (!state) return '';
+  const trimmed = state.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === 'delhi' || lower === 'new delhi' || lower === 'nct of delhi' || lower.includes('nct of delhi')) {
+    return 'Delhi (NCT)';
+  }
+  if (lower.includes('jammu') && lower.includes('kashmir')) {
+    return 'Jammu and Kashmir';
+  }
+  if (lower.includes('andaman') || lower.includes('nicobar')) {
+    return 'Andaman and Nicobar Islands';
+  }
+  if (
+    lower.includes('daman') ||
+    lower.includes('diu') ||
+    lower.includes('dadra') ||
+    lower.includes('haveli') ||
+    lower.includes('d&nh')
+  ) {
+    return 'Dadra and Nagar Haveli and Daman and Diu';
+  }
+  if (lower === 'orissa') {
+    return 'Odisha';
+  }
+  if (lower === 'uttaranchal') {
+    return 'Uttarakhand';
+  }
+  return trimmed;
+}
+
+/**
  * Fetch district risk scores for all 964 districts (or filtered by state)
  * Includes 5-minute client caching to minimize server load.
  */
@@ -252,12 +286,14 @@ export async function getDistrictRiskScores(state?: string): Promise<DistrictRis
     return cachedDistricts.data;
   }
 
+  const normalizedState = state ? normalizeStateName(state) : undefined;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const queryEndpoint = state 
-      ? `districts?state=${encodeURIComponent(state)}`
+    const queryEndpoint = normalizedState 
+      ? `districts?state=${encodeURIComponent(normalizedState)}`
       : 'districts';
 
     const res = await resilientFetch(queryEndpoint, {
@@ -273,7 +309,17 @@ export async function getDistrictRiskScores(state?: string): Promise<DistrictRis
     }
 
     const json = await res.json();
-    const list: DistrictRiskData[] = json.districts || [];
+    let list: DistrictRiskData[] = json.districts || [];
+
+    // If query by state returned empty (e.g. slight naming divergence in DB), fallback to full table filtered locally
+    if (normalizedState && list.length === 0) {
+      const allDistricts = await getDistrictRiskScores();
+      const normLower = normalizedState.toLowerCase();
+      list = allDistricts.filter(d => {
+        const sLower = d.State.toLowerCase();
+        return sLower === normLower || sLower.includes(normLower) || normLower.includes(sLower);
+      });
+    }
 
     if (!state && list.length > 0) {
       cachedDistricts = { data: list, timestamp: now };
@@ -282,8 +328,13 @@ export async function getDistrictRiskScores(state?: string): Promise<DistrictRis
     return list;
   } catch (err) {
     console.warn('[CyberCast API] Failed to fetch live districts, using fallback:', err);
-    if (state) {
-      return FALLBACK_DISTRICTS.filter(d => d.State.toLowerCase() === state.toLowerCase());
+    if (normalizedState) {
+      const normLower = normalizedState.toLowerCase();
+      const matched = FALLBACK_DISTRICTS.filter(d => {
+        const sLower = d.State.toLowerCase();
+        return sLower === normLower || sLower.includes(normLower) || normLower.includes(sLower);
+      });
+      return matched.length > 0 ? matched : FALLBACK_DISTRICTS;
     }
     return FALLBACK_DISTRICTS;
   }
@@ -293,11 +344,12 @@ export async function getDistrictRiskScores(state?: string): Promise<DistrictRis
  * Fetch risk score and tier for a single district
  */
 export async function getSingleDistrictRisk(state: string, district: string): Promise<DistrictRiskData | null> {
+  const normalizedState = normalizeStateName(state);
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const endpoint = `district/${encodeURIComponent(state)}/${encodeURIComponent(district)}`;
+    const endpoint = `district/${encodeURIComponent(normalizedState)}/${encodeURIComponent(district)}`;
     const res = await resilientFetch(endpoint, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
@@ -307,18 +359,19 @@ export async function getSingleDistrictRisk(state: string, district: string): Pr
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      const all = await getDistrictRiskScores();
-      const found = all.find(d => 
-        d.State.toLowerCase() === state.toLowerCase() && 
-        d.District.toLowerCase().includes(district.toLowerCase())
-      );
+      const all = await getDistrictRiskScores(normalizedState);
+      const cleanDistrict = district.toLowerCase().trim();
+      const found = all.find(d => {
+        const dLower = d.District.toLowerCase().trim();
+        return dLower === cleanDistrict || dLower.includes(cleanDistrict) || cleanDistrict.includes(dLower);
+      });
       return found || null;
     }
 
     const json = await res.json();
     return {
-      State: json.state,
-      District: json.district,
+      State: json.state || normalizedState,
+      District: json.district || district,
       risk_score: json.risk_score,
       risk_tier: json.risk_tier,
     };
@@ -341,12 +394,12 @@ export async function predictWithdrawal(complaintData: ComplaintInput): Promise<
       complaint_id: complaintData.complaint_id || `NCRP-${Date.now().toString().slice(-6)}`,
       fraud_type: complaintData.fraud_type,
       amount_stolen_inr: Number(complaintData.amount_stolen_inr),
-      victim_state: complaintData.victim_state,
+      victim_state: normalizeStateName(complaintData.victim_state),
       victim_district: complaintData.victim_district || null,
       victim_city_type: complaintData.victim_city_type || 'Metro',
-      fraudster_phone_circle: complaintData.fraudster_phone_circle || complaintData.victim_state,
+      fraudster_phone_circle: complaintData.fraudster_phone_circle ? normalizeStateName(complaintData.fraudster_phone_circle) : normalizeStateName(complaintData.victim_state),
       mule_account_bank: complaintData.mule_account_bank || 'SBI',
-      mule_account_state: complaintData.mule_account_state || complaintData.victim_state,
+      mule_account_state: normalizeStateName(complaintData.mule_account_state || complaintData.victim_state),
       complaint_hour: complaintData.complaint_hour ?? new Date().getHours(),
       complaint_day_of_week: complaintData.complaint_day_of_week ?? new Date().getDay(),
       complaint_timestamp: complaintData.complaint_timestamp || new Date().toISOString().replace('T', ' ').slice(0, 19),
