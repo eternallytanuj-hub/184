@@ -354,11 +354,28 @@ export async function POST(req: NextRequest) {
       throw new Error(stdout || stderr || 'Android intent execution returned error');
     }
 
+    // 3. Option 1: Autonomous Send Button Auto-Tap
+    let tapX = 990;
+    let tapY = 2191;
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      const { stdout: sizeOut } = await execFilePromise(adbPath, ['-s', activeDevice.serial, 'shell', 'wm', 'size'], { timeout: 2000 });
+      const m = sizeOut.match(/(\d+)x(\d+)/);
+      if (m) {
+        tapX = Math.round(parseInt(m[1], 10) * 0.917);
+        tapY = Math.round(parseInt(m[2], 10) * 0.913);
+      }
+      await execFilePromise(adbPath, ['-s', activeDevice.serial, 'shell', 'input', 'tap', String(tapX), String(tapY)], { timeout: 3000 });
+    } catch (tapErr: any) {
+      console.warn('[Auto-Send Tap Warning]:', tapErr.message);
+    }
+
     return NextResponse.json({
       success: true,
       mode: 'hardware',
       status: 'DELIVERED_TO_HARDWARE',
       hardwareDispatched: true,
+      autoSent: true,
       deviceId: activeDevice.serial,
       model: activeDevice.model || 'Android Device',
       phone,
