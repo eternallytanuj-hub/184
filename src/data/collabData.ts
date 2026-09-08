@@ -724,6 +724,22 @@ export interface EvidenceItem {
   anchoredAt?: string;
   bsa63CertificateId?: string;
   ledgerStatus: 'ANCHORED' | 'PENDING' | 'LOCAL';
+  // PaddleOCR & Dual-Layer Compound Forensic Fields
+  compoundHash?: string;
+  rawFileSha256?: string;
+  ocrTextSha256?: string;
+  ocrConfidence?: number;
+  ocrEntities?: {
+    phone_numbers?: string[];
+    bank_accounts?: string[];
+    upi_ids?: string[];
+    ifsc_codes?: string[];
+    apks_detected?: string[];
+    urls_detected?: string[];
+    urgency_keywords?: string[];
+    utr_numbers?: string[];
+  };
+  ocrModelVersion?: string;
 }
 
 export const EVIDENCE_DATA: EvidenceItem[] = [
@@ -753,6 +769,15 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     anchoredAt: '2026-09-05T06:26:12.000Z',
     bsa63CertificateId: 'BSA-63-2026-RAJ-9182',
     ledgerStatus: 'ANCHORED',
+    rawFileSha256: '9e1a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a',
+    compoundHash: '7d91e8b2c4f6a1e3d5b7c9e0f2a4b6c8d1e3f5a7b9c0d2e4f6a8b0c2d4e6f8a0',
+    ocrConfidence: 0.964,
+    ocrModelVersion: 'PaddleOCR v2.8',
+    ocrEntities: {
+      phone_numbers: ['98765-XXXXX'],
+      apks_detected: ['QuickSupport.apk'],
+      urgency_keywords: ['काट दिया जाएगा', 'तुरंत', 'बिजली कनेक्शन'],
+    },
     chainOfCustody: [
       {
         timestamp: '11:55 IST',
@@ -807,6 +832,15 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     anchoredAt: '2026-09-05T07:11:45.000Z',
     bsa63CertificateId: 'BSA-63-2026-RAJ-9183',
     ledgerStatus: 'ANCHORED',
+    rawFileSha256: 'f4b2c1d0e9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2',
+    compoundHash: '8e02f9a3b5c7d1e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2',
+    ocrConfidence: 0.942,
+    ocrModelVersion: 'PaddleOCR v2.8',
+    ocrEntities: {
+      phone_numbers: [],
+      bank_accounts: [],
+      urgency_keywords: [],
+    },
     chainOfCustody: [
       {
         timestamp: '12:40 IST',
@@ -843,6 +877,16 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     anchoredAt: '2026-09-05T06:46:20.000Z',
     bsa63CertificateId: 'BSA-63-2026-MH-4421',
     ledgerStatus: 'ANCHORED',
+    rawFileSha256: 'c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8',
+    compoundHash: '9f13a0b4c6d8e2f5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3',
+    ocrConfidence: 0.978,
+    ocrModelVersion: 'PaddleOCR v2.8',
+    ocrEntities: {
+      bank_accounts: ['38920192831'],
+      ifsc_codes: ['SBIN0001234'],
+      utr_numbers: ['HDFCR5202609050019284'],
+      urgency_keywords: ['LIEN'],
+    },
     chainOfCustody: [
       {
         timestamp: '12:15 IST',
@@ -878,6 +922,10 @@ export const EVIDENCE_DATA: EvidenceItem[] = [
     anchoredAt: '2026-09-05T06:31:00.000Z',
     bsa63CertificateId: 'BSA-63-2026-RAJ-9180',
     ledgerStatus: 'ANCHORED',
+    rawFileSha256: 'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2',
+    compoundHash: 'a024b1c5d7e9f3a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4',
+    ocrConfidence: 0.985,
+    ocrModelVersion: 'PaddleOCR v2.8',
     chainOfCustody: [
       {
         timestamp: '12:00 IST',

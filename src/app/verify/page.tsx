@@ -39,7 +39,11 @@ import {
   CreditCard,
   Camera,
   Scale,
-  Smartphone
+  Smartphone,
+  Phone,
+  Zap,
+  Package,
+  Languages
 } from 'lucide-react';
 
 function CourtroomVerifierContent() {
@@ -459,28 +463,68 @@ function CourtroomVerifierContent() {
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-white/40">SHA-256 CRYPTOGRAPHIC CHECKSUM</span>
-                        <button
-                          onClick={() => handleCopyHash(result.sha256Hash)}
-                          className="text-white/60 hover:text-white flex items-center gap-1"
-                        >
-                          {copiedHash ? (
-                            <>
-                              <Check className="w-3 h-3 text-[#ceff00]" />
-                              <span className="text-[#ceff00]">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <span className="text-white font-mono break-all bg-black/60 p-2 border border-white/10 block mt-1 select-all">
-                        {result.sha256Hash}
-                      </span>
+                      {result.rawFileSha256 && result.compoundHash && result.rawFileSha256 !== result.compoundHash ? (
+                        <div className="space-y-2">
+                          <div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-white/40 font-bold uppercase">RAW ARTIFACT SHA-256 (ORIGINAL BINARY CHECKSUM)</span>
+                              <button
+                                onClick={() => handleCopyHash(result.rawFileSha256 || '')}
+                                className="text-white/60 hover:text-white flex items-center gap-1"
+                              >
+                                {copiedHash ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-[#ceff00]" />
+                                    <span className="text-[#ceff00]">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <span className="text-white font-mono break-all bg-black/60 p-2 border border-white/10 block mt-1 select-all">
+                              {result.rawFileSha256}
+                            </span>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-[#ceff00] font-bold uppercase">DUAL-LAYER COMPOUND CRYPTOGRAPHIC ROOT (ON-CHAIN ANCHOR)</span>
+                            </div>
+                            <span className="text-[#ceff00] font-mono break-all bg-black/60 p-2 border border-[#ceff00]/30 block mt-1 select-all">
+                              {result.compoundHash}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-white/40">SHA-256 CRYPTOGRAPHIC CHECKSUM</span>
+                            <button
+                              onClick={() => handleCopyHash(result.sha256Hash)}
+                              className="text-white/60 hover:text-white flex items-center gap-1"
+                            >
+                              {copiedHash ? (
+                                <>
+                                  <Check className="w-3 h-3 text-[#ceff00]" />
+                                  <span className="text-[#ceff00]">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <span className="text-white font-mono break-all bg-black/60 p-2 border border-white/10 block mt-1 select-all">
+                            {result.sha256Hash}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -529,6 +573,85 @@ function CourtroomVerifierContent() {
                         <span className="text-white block">{result.matchedEvidence.gpsCoordinates}</span>
                       </div>
                     </div>
+
+                    {/* Immutable PaddleOCR Seizure Transcript & Highlighted Entities */}
+                    {(result.matchedEvidence.ocrExtractedText || result.ocrExtractedText) && (
+                      <div className="pt-3 border-t border-white/10 space-y-2">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-[#ceff00] font-bold uppercase flex items-center gap-1.5">
+                            <Languages className="w-3.5 h-3.5" />
+                            IMMUTABLE PADDLEOCR SEIZURE TRANSCRIPT ({result.detectedLanguage || result.matchedEvidence.detectedLanguage || 'REGIONAL'})
+                          </span>
+                          <span className="px-1.5 py-0.5 bg-[#ceff00]/10 text-[#ceff00] border border-[#ceff00]/30 font-bold text-[9px]">
+                            PADDLE_OCR v2.8
+                          </span>
+                        </div>
+
+                        {/* Highlighted Entity Chips */}
+                        {(result.matchedEvidence.ocrEntities || result.ocrEntities) && (() => {
+                          const activeOcrEntities = result.matchedEvidence.ocrEntities || result.ocrEntities;
+                          return (
+                            <div className="flex flex-wrap gap-1">
+                              {activeOcrEntities.phone_numbers?.map((ph: string, idx: number) => (
+                                <span key={`vph-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-sky-950/60 border border-sky-400/30 text-sky-300 text-[9px] font-bold">
+                                  <Phone className="w-2 h-2" />
+                                  {ph}
+                                </span>
+                              ))}
+                              {activeOcrEntities.bank_accounts?.map((acc: string, idx: number) => (
+                                <span key={`vacc-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-950/60 border border-amber-400/30 text-amber-300 text-[9px] font-bold">
+                                  <CreditCard className="w-2 h-2" />
+                                  A/C {acc}
+                                </span>
+                              ))}
+                              {activeOcrEntities.ifsc_codes?.map((ifsc: string, idx: number) => (
+                                <span key={`vifsc-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-950/60 border border-purple-400/30 text-purple-300 text-[9px] font-bold">
+                                  IFSC: {ifsc}
+                                </span>
+                              ))}
+                              {activeOcrEntities.utr_numbers?.map((utr: string, idx: number) => (
+                                <span key={`vutr-${idx}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-950/60 border border-teal-400/30 text-teal-300 text-[9px] font-bold">
+                                  <FileCode2 className="w-2 h-2" />
+                                  UTR: {utr}
+                                </span>
+                              ))}
+                              {activeOcrEntities.upi_ids?.map((upi: string, idx: number) => (
+                                <span key={`vupi-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-950/60 border border-emerald-400/30 text-emerald-300 text-[9px] font-bold">
+                                  <Zap className="w-2 h-2" />
+                                  {upi}
+                                </span>
+                              ))}
+                              {activeOcrEntities.apks_detected?.map((apk: string, idx: number) => (
+                                <span key={`vapk-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-950/60 border border-rose-400/30 text-rose-300 text-[9px] font-bold">
+                                  <Package className="w-2 h-2" />
+                                  {apk}
+                                </span>
+                              ))}
+                              {activeOcrEntities.urgency_keywords?.map((kw: string, idx: number) => (
+                                <span key={`vkw-${idx}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-950/60 border border-red-500/40 text-red-300 text-[9px] font-bold">
+                                  <AlertTriangle className="w-2 h-2" />
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        <div className="p-2.5 bg-black/60 border border-white/10 text-xs text-white/90 italic leading-relaxed">
+                          &quot;{result.matchedEvidence.ocrExtractedText || result.ocrExtractedText}&quot;
+                        </div>
+
+                        {result.matchedEvidence.translatedText && (
+                          <div className="text-[11px] text-white/50">
+                            En: &quot;{result.matchedEvidence.translatedText}&quot;
+                          </div>
+                        )}
+
+                        <div className="text-[9px] text-white/40 pt-0.5">
+                          Establishes that threat text and financial coordinates were present before custodial handling (BSA Sec 63).
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
