@@ -4,8 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
-  Plus, Minus, Globe, 
-  FileText, Share2, PenTool, Split 
+  Plus, Minus, Globe 
 } from 'lucide-react';
 import { 
   ATMS_DATA, 
@@ -27,6 +26,13 @@ import {
   FilterState 
 } from './LeftSidebar';
 import { getDistrictRiskScores, DistrictRiskData } from '@/lib/apiService';
+import { 
+  STATE_CENTROIDS, 
+  matchesState, 
+  matchesRisk, 
+  matchesAmount, 
+  matchesTime 
+} from '@/lib/filterUtils';
 
 interface MapEngineProps {
   layers: LayerVisibilityState;
@@ -35,10 +41,10 @@ interface MapEngineProps {
   onSelectPolice: (station: PoliceStationEntity) => void;
   onSelectBranch: (branch: BankBranchEntity) => void;
   onSelectZone: (zoneName: string, coords: [number, number], zoom?: number) => void;
-  onOpenReportModal: () => void;
-  onOpenShareModal: () => void;
-  onOpenDrawZoneModal: () => void;
-  onOpenCompareModal: () => void;
+  onOpenReportModal?: () => void;
+  onOpenShareModal?: () => void;
+  onOpenDrawZoneModal?: () => void;
+  onOpenCompareModal?: () => void;
   flyToCoords: { coords: [number, number]; zoom?: number } | null;
 }
 
@@ -49,10 +55,6 @@ export default function MapEngine({
   onSelectPolice,
   onSelectBranch,
   onSelectZone,
-  onOpenReportModal,
-  onOpenShareModal,
-  onOpenDrawZoneModal,
-  onOpenCompareModal,
   flyToCoords,
 }: MapEngineProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -185,6 +187,17 @@ export default function MapEngine({
     });
   }, [flyToCoords]);
 
+  // Auto-fly to state centroid when selectedState filter changes
+  useEffect(() => {
+    if (!mapInstanceRef.current || !filters.selectedState) return;
+    const target = STATE_CENTROIDS[filters.selectedState];
+    if (target) {
+      mapInstanceRef.current.flyTo(target.coords, target.zoom, {
+        duration: 1.4,
+      });
+    }
+  }, [filters.selectedState]);
+
   // RENDER MARKER LAYERS ACCORDING TO TOGGLES AND FILTERS
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -193,11 +206,10 @@ export default function MapEngine({
     atmsLayerGroupRef.current.clearLayers();
     if (layers.atms) {
       ATMS_DATA.forEach((atm) => {
-        // Filter check
-        if (filters.riskLevels.length > 0) {
-          const level = atm.riskScore >= 76 ? 'Critical' : atm.riskScore >= 51 ? 'High' : atm.riskScore >= 26 ? 'Moderate' : 'Low';
-          if (!filters.riskLevels.includes(level)) return;
-        }
+        // Multi-Filter Evaluation
+        if (!matchesRisk(atm.riskScore, filters.riskLevels)) return;
+        if (!matchesState(filters.selectedState, [atm.address, atm.zone, atm.id])) return;
+        if (!matchesTime(atm.lastAlert, filters.timeRange)) return;
 
         // Custom Vector Pin Icon - Minimalist Card Terminal (Zero Blinking)
         const isHigh = atm.riskScore >= 76;
@@ -255,6 +267,10 @@ export default function MapEngine({
     banksLayerGroupRef.current.clearLayers();
     if (layers.banks) {
       BANK_BRANCHES_DATA.forEach((branch) => {
+        // Multi-Filter Evaluation
+        if (!matchesState(filters.selectedState, [branch.address, branch.zone, branch.name])) return;
+        if (!matchesRisk(branch.riskLevel, filters.riskLevels)) return;
+
         const iconHtml = `
           <div style="width: 22px; height: 22px; background: #0c0c0c; border: 1.5px solid #06b6d4; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.8);">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -305,6 +321,9 @@ export default function MapEngine({
     policeLayerGroupRef.current.clearLayers();
     if (layers.police) {
       POLICE_STATIONS_DATA.forEach((ps) => {
+        // Multi-Filter Evaluation
+        if (!matchesState(filters.selectedState, [ps.jurisdiction, ps.name])) return;
+
         const iconHtml = `
           <div style="width: 22px; height: 22px; background: #0a1526; border: 1.5px solid #3b82f6; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.8);">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -351,6 +370,14 @@ export default function MapEngine({
     incidentsLayerGroupRef.current.clearLayers();
     if (layers.incidents) {
       ACTIVE_INCIDENTS_DATA.forEach((inc) => {
+        // Multi-Filter Evaluation
+        if (filters.fraudTypes.length > 0 && !filters.fraudTypes.includes(inc.fraudType)) return;
+        if (!matchesAmount(inc.amount, filters.amountRange)) return;
+        if (!matchesState(filters.selectedState, [inc.groundTruthState, inc.predictedStateTop1, inc.victimLocation, inc.caseTitle])) return;
+        const incTier = inc.amount >= 1000000 ? 'Critical' : inc.amount >= 200000 ? 'High' : inc.amount >= 50000 ? 'Moderate' : 'Low';
+        if (!matchesRisk(incTier, filters.riskLevels)) return;
+        if (!matchesTime(inc.complaintTime, filters.timeRange)) return;
+
         // Incident Warning Diamond (Zero Blinking)
         const iconHtml = `
           <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; position: relative;">
@@ -496,6 +523,12 @@ export default function MapEngine({
     hotspotsLayerGroupRef.current.clearLayers();
     if (layers.hotspots) {
       PREDICTED_HOTSPOTS_DATA.forEach((spot) => {
+        // Multi-Filter Evaluation
+        if (!matchesState(filters.selectedState, [spot.name])) return;
+        const spotTier = spot.riskScore >= 90 || spot.urgency === 'Immediate' ? 'Critical' : spot.riskScore >= 80 ? 'High' : 'Moderate';
+        if (!matchesRisk(spotTier, filters.riskLevels)) return;
+        if (!matchesTime(spot.urgency, filters.timeRange) && !matchesTime(spot.timeWindow, filters.timeRange)) return;
+
         const radius = spot.radius;
         const opacity = spot.urgency === 'Immediate' ? 0.25 : 0.15;
 
@@ -565,6 +598,21 @@ export default function MapEngine({
     corridorsLayerGroupRef.current.clearLayers();
     if (layers.corridors) {
       CORRIDORS_DATA.forEach((corridor) => {
+        // Multi-Filter Evaluation
+        if (filters.selectedState && filters.selectedState !== 'All India') {
+          const fromMatch = matchesState(filters.selectedState, [corridor.fromState]);
+          const toMatch = matchesState(filters.selectedState, [corridor.toState]);
+          if (!fromMatch && !toMatch) return;
+        }
+
+        let corridorAmountNum = 10000000;
+        if (corridor.totalAmount.includes('Cr')) {
+          corridorAmountNum = parseFloat(corridor.totalAmount.replace(/[^\d.]/g, '')) * 10000000;
+        } else if (corridor.totalAmount.includes('Lakh')) {
+          corridorAmountNum = parseFloat(corridor.totalAmount.replace(/[^\d.]/g, '')) * 100000;
+        }
+        if (!matchesAmount(corridorAmountNum, filters.amountRange)) return;
+
         const color = corridor.type === 'active' ? '#ef4444' : corridor.type === 'predicted' ? '#f59e0b' : '#71717a';
         
         const polyline = L.polyline(corridor.path, {
@@ -648,6 +696,9 @@ export default function MapEngine({
       }
 
       HEATMAP_POINTS.forEach((pt) => {
+        // Multi-Filter Evaluation
+        if (!matchesState(filters.selectedState, [pt.title])) return;
+        if (!matchesRisk(pt.tier, filters.riskLevels)) return;
         const circle = L.circle([pt.lat, pt.lng], {
           radius: pt.r,
           color: pt.color,
@@ -765,51 +816,6 @@ export default function MapEngine({
           title="Zoom Out"
         >
           <Minus className="h-4 w-4" />
-        </button>
-
-      </div>
-
-      {/* BOTTOM RIGHT SURFACE: FLOATING ACTION BUTTONS */}
-      <div className="absolute bottom-4 right-4 z-30 flex items-center gap-2">
-        
-        {/* Button 1: Generate Report */}
-        <button
-          onClick={onOpenReportModal}
-          className="px-3 py-1.5 bg-[#141414]/90 hover:bg-neon hover:text-black border border-white/20 text-white font-bold uppercase text-[10px] shadow-lg backdrop-blur-sm flex items-center gap-1.5"
-          title="Generate Intelligence Briefing PDF Report"
-        >
-          <FileText className="h-3 w-3 text-neon group-hover:text-black" />
-          <span>GENERATE REPORT</span>
-        </button>
-
-        {/* Button 2: Share View */}
-        <button
-          onClick={onOpenShareModal}
-          className="px-3 py-1.5 bg-[#141414]/90 hover:bg-neon hover:text-black border border-white/20 text-white font-bold uppercase text-[10px] shadow-lg backdrop-blur-sm flex items-center gap-1.5"
-          title="Share Encrypted 24h View Link"
-        >
-          <Share2 className="h-3 w-3 text-neon group-hover:text-black" />
-          <span>SHARE VIEW</span>
-        </button>
-
-        {/* Button 3: Draw Zone */}
-        <button
-          onClick={onOpenDrawZoneModal}
-          className="px-3 py-1.5 bg-[#141414]/90 hover:bg-neon hover:text-black border border-white/20 text-white font-bold uppercase text-[10px] shadow-lg backdrop-blur-sm flex items-center gap-1.5"
-          title="Draw Custom Perimeter Zone"
-        >
-          <PenTool className="h-3 w-3 text-neon group-hover:text-black" />
-          <span>DRAW ZONE</span>
-        </button>
-
-        {/* Button 4: Compare */}
-        <button
-          onClick={onOpenCompareModal}
-          className="px-3 py-1.5 bg-[#141414]/90 hover:bg-neon hover:text-black border border-white/20 text-white font-bold uppercase text-[10px] shadow-lg backdrop-blur-sm flex items-center gap-1.5"
-          title="Compare Split Screen Historical Baseline"
-        >
-          <Split className="h-3 w-3 text-neon group-hover:text-black" />
-          <span>COMPARE</span>
         </button>
 
       </div>

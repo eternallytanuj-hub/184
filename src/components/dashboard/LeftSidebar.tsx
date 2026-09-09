@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  Sliders, Layers, Activity, Filter, Play, Pause, 
-  RotateCcw, ShieldAlert, TrendingUp, ChevronDown, 
-  ChevronUp, Check, Eye, EyeOff
+  Layers, Filter, RotateCcw, ChevronDown, ChevronUp, Check
 } from 'lucide-react';
 import { 
-  DASHBOARD_STATS, 
   INDIAN_STATES_AND_UTS 
 } from '@/data/dashboardData';
 
@@ -35,12 +32,6 @@ interface LeftSidebarProps {
   filters: FilterState;
   onChangeFilter: (filters: Partial<FilterState>) => void;
   onResetFilters: () => void;
-  timelineHour: number;
-  onTimelineChange: (hour: number) => void;
-  onTimelinePlayToggle: () => void;
-  isPlayingTimeline: boolean;
-  timelineSpeed: number;
-  onChangeTimelineSpeed: (speed: number) => void;
   layerCounts: {
     atms: number;
     banks: number;
@@ -49,6 +40,13 @@ interface LeftSidebarProps {
     hotspots: number;
     corridors: number;
   };
+  // Optional legacy props for backwards compatibility
+  timelineHour?: number;
+  onTimelineChange?: (hour: number) => void;
+  onTimelinePlayToggle?: () => void;
+  isPlayingTimeline?: boolean;
+  timelineSpeed?: number;
+  onChangeTimelineSpeed?: (speed: number) => void;
 }
 
 export default function LeftSidebar({
@@ -57,19 +55,12 @@ export default function LeftSidebar({
   filters,
   onChangeFilter,
   onResetFilters,
-  timelineHour,
-  onTimelineChange,
-  onTimelinePlayToggle,
-  isPlayingTimeline,
-  timelineSpeed,
-  onChangeTimelineSpeed,
   layerCounts,
 }: LeftSidebarProps) {
   // Collapsible section states
-  const [statsExpanded, setStatsExpanded] = useState(true);
   const [layersExpanded, setLayersExpanded] = useState(true);
   const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const [timelineExpanded, setTimelineExpanded] = useState(true);
+  const [appliedNotice, setAppliedNotice] = useState(false);
 
   const fraudTypesList = [
     'KYC Fraud',
@@ -98,72 +89,15 @@ export default function LeftSidebar({
     }
   };
 
+  const handleApplyClick = () => {
+    setAppliedNotice(true);
+    setTimeout(() => setAppliedNotice(false), 2000);
+  };
+
   return (
     <aside className="w-full h-full bg-[#0c0c0c] border-r border-white/10 flex flex-col overflow-y-auto text-white select-none divide-y divide-white/10 font-mono text-xs">
       
-      {/* PANEL 1: QUICK STATS CARDS */}
-      <div className="p-3">
-        <button
-          onClick={() => setStatsExpanded(!statsExpanded)}
-          className="w-full flex items-center justify-between text-zinc-400 hover:text-white uppercase font-bold text-[10px] tracking-wider mb-2"
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 bg-neon" />
-            <span>OPERATIONAL METRICS</span>
-          </div>
-          {statsExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </button>
-
-        {statsExpanded && (
-          <div className="grid grid-cols-2 gap-2">
-            {/* Card 1: Active Alerts Today */}
-            <div className="p-2.5 bg-[#141414] border border-red-500/30">
-              <div className="text-[9px] text-zinc-400 uppercase tracking-wider">ACTIVE ALERTS</div>
-              <div className="text-xl font-heading-display font-light text-red-400 mt-1">
-                {DASHBOARD_STATS.activeAlerts.value}
-              </div>
-              <div className="text-[9px] text-red-500/90 mt-0.5 font-mono">
-                {DASHBOARD_STATS.activeAlerts.change}
-              </div>
-            </div>
-
-            {/* Card 2: Predictions Generated Today */}
-            <div className="p-2.5 bg-[#141414] border border-amber-500/30">
-              <div className="text-[9px] text-zinc-400 uppercase tracking-wider">AI PREDICTIONS</div>
-              <div className="text-xl font-heading-display font-light text-amber-400 mt-1">
-                {DASHBOARD_STATS.predictionsGenerated.value}
-              </div>
-              <div className="text-[9px] text-zinc-400 mt-0.5">
-                {DASHBOARD_STATS.predictionsGenerated.subtext}
-              </div>
-            </div>
-
-            {/* Card 3: Cases Under Surveillance */}
-            <div className="p-2.5 bg-[#141414] border border-cyan-500/30">
-              <div className="text-[9px] text-zinc-400 uppercase tracking-wider">SURVEILLANCE</div>
-              <div className="text-xl font-heading-display font-light text-cyan-400 mt-1">
-                {DASHBOARD_STATS.underSurveillance.value}
-              </div>
-              <div className="text-[9px] text-zinc-400 mt-0.5">
-                {DASHBOARD_STATS.underSurveillance.subtext}
-              </div>
-            </div>
-
-            {/* Card 4: Funds Flagged Today */}
-            <div className="p-2.5 bg-[#141414] border border-neon/30">
-              <div className="text-[9px] text-zinc-400 uppercase tracking-wider">FUNDS FLAGGED</div>
-              <div className="text-xl font-heading-display font-light text-neon mt-1">
-                {DASHBOARD_STATS.fundsFlagged.value}
-              </div>
-              <div className="text-[9px] text-zinc-400 mt-0.5">
-                {DASHBOARD_STATS.fundsFlagged.subtext}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* PANEL 2: LAYER CONTROL PANEL */}
+      {/* PANEL 1: LAYER CONTROL PANEL */}
       <div className="p-3">
         <button
           onClick={() => setLayersExpanded(!layersExpanded)}
@@ -190,7 +124,7 @@ export default function LeftSidebar({
                 />
                 <span className="text-zinc-200">ATM Locations</span>
               </div>
-              <span className="text-[10px] text-zinc-500">({layerCounts.atms} visible)</span>
+              <span className="text-[10px] text-zinc-400 font-bold">({layerCounts.atms} visible)</span>
             </label>
 
             {/* Bank Branches Layer */}
@@ -204,7 +138,7 @@ export default function LeftSidebar({
                 />
                 <span className="text-zinc-200">Bank Branches</span>
               </div>
-              <span className="text-[10px] text-zinc-500">({layerCounts.banks} visible)</span>
+              <span className="text-[10px] text-zinc-400 font-bold">({layerCounts.banks} visible)</span>
             </label>
 
             {/* Police Stations Layer */}
@@ -218,7 +152,7 @@ export default function LeftSidebar({
                 />
                 <span className="text-zinc-200">Police Stations</span>
               </div>
-              <span className="text-[10px] text-zinc-500">({layerCounts.police} visible)</span>
+              <span className="text-[10px] text-zinc-400 font-bold">({layerCounts.police} visible)</span>
             </label>
 
             {/* Active Crime Incidents */}
@@ -246,7 +180,7 @@ export default function LeftSidebar({
                 />
                 <span className="text-neon font-medium">Predicted Hotspots</span>
               </div>
-              <span className="text-[10px] text-neon">({layerCounts.hotspots} zones)</span>
+              <span className="text-[10px] text-neon font-bold">({layerCounts.hotspots} zones)</span>
             </label>
 
             {/* Criminal Corridors (Hidden by default) */}
@@ -260,7 +194,7 @@ export default function LeftSidebar({
                 />
                 <span className="text-zinc-200">Criminal Corridors</span>
               </div>
-              <span className="text-[10px] text-zinc-500">({layerCounts.corridors} trails)</span>
+              <span className="text-[10px] text-zinc-400 font-bold">({layerCounts.corridors} trails)</span>
             </label>
 
             {/* Risk Heatmap Overlay */}
@@ -281,7 +215,7 @@ export default function LeftSidebar({
         )}
       </div>
 
-      {/* PANEL 3: FILTER PANEL */}
+      {/* PANEL 2: FILTER PANEL */}
       <div className="p-3">
         <button
           onClick={() => setFiltersExpanded(!filtersExpanded)}
@@ -310,7 +244,6 @@ export default function LeftSidebar({
                 <option value="24h">Last 24 Hours (Default)</option>
                 <option value="7d">Last 7 Days</option>
                 <option value="30d">Last 30 Days</option>
-                <option value="custom">Custom Date Range</option>
               </select>
             </div>
 
@@ -371,7 +304,7 @@ export default function LeftSidebar({
             {/* Fraud Type Filter Checkboxes */}
             <div>
               <label className="block text-[10px] text-zinc-400 uppercase mb-1.5">Fraud Typology:</label>
-              <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-1 max-h-36 overflow-y-auto pr-1">
                 {fraudTypesList.map((type) => (
                   <label key={type} className="flex items-center gap-1.5 text-[10px] text-zinc-300 cursor-pointer">
                     <input
@@ -389,96 +322,31 @@ export default function LeftSidebar({
             {/* Filter Buttons */}
             <div className="pt-2 flex items-center gap-2">
               <button
-                onClick={() => {}}
-                className="flex-1 py-1.5 bg-neon hover:bg-neon/90 text-black font-bold uppercase text-[10px] tracking-wider rounded-none"
+                onClick={handleApplyClick}
+                className={`flex-1 py-1.5 font-bold uppercase text-[10px] tracking-wider rounded-none transition-all flex items-center justify-center gap-1.5 ${
+                  appliedNotice
+                    ? 'bg-emerald-400 text-black'
+                    : 'bg-neon hover:bg-neon/90 text-black'
+                }`}
               >
-                APPLY FILTERS
+                {appliedNotice ? (
+                  <>
+                    <Check className="h-3 w-3 stroke-[3]" />
+                    <span>FILTERS ACTIVE</span>
+                  </>
+                ) : (
+                  <span>APPLY FILTERS</span>
+                )}
               </button>
               <button
                 onClick={onResetFilters}
-                className="px-3 py-1.5 bg-[#141414] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/15 uppercase text-[10px] rounded-none"
-                title="Reset to default view"
+                className="px-3 py-1.5 bg-[#141414] hover:bg-white/10 text-zinc-400 hover:text-white border border-white/15 uppercase text-[10px] rounded-none active:scale-95 transition-transform"
+                title="Reset all filters to default"
               >
                 <RotateCcw className="h-3 w-3" />
               </button>
             </div>
 
-          </div>
-        )}
-      </div>
-
-      {/* PANEL 4: TIMELINE PLAYBACK SLIDER */}
-      <div className="p-3">
-        <button
-          onClick={() => setTimelineExpanded(!timelineExpanded)}
-          className="w-full flex items-center justify-between text-zinc-400 hover:text-white uppercase font-bold text-[10px] tracking-wider mb-2"
-        >
-          <div className="flex items-center gap-1.5">
-            <Play className="h-3.5 w-3.5 text-neon" />
-            <span>TIMELINE PLAYBACK (24H)</span>
-          </div>
-          {timelineExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        </button>
-
-        {timelineExpanded && (
-          <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className="text-zinc-400">PLAYBACK TIME:</span>
-              <span className="text-neon font-bold">
-                {timelineHour.toString().padStart(2, '0')}:00 IST
-              </span>
-            </div>
-
-            {/* Horizontal Slider */}
-            <input
-              type="range"
-              min="0"
-              max="23"
-              value={timelineHour}
-              onChange={(e) => onTimelineChange(parseInt(e.target.value, 10))}
-              className="w-full accent-[#ceff00] bg-zinc-800 h-1.5 cursor-pointer rounded-none"
-            />
-
-            <div className="flex items-center justify-between text-[9px] text-zinc-500 font-mono">
-              <span>00:00 (MIDNIGHT)</span>
-              <span>12:00 (NOON)</span>
-              <span>23:00</span>
-            </div>
-
-            {/* Playback Controls & Speeds */}
-            <div className="flex items-center justify-between pt-1">
-              <button
-                onClick={onTimelinePlayToggle}
-                className={`px-3 py-1.5 flex items-center gap-1.5 font-bold uppercase text-[10px] border ${
-                  isPlayingTimeline
-                    ? 'bg-red-500 text-white border-red-500'
-                    : 'bg-[#141414] hover:bg-neon hover:text-black text-white border-white/20'
-                }`}
-              >
-                {isPlayingTimeline ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                <span>{isPlayingTimeline ? 'PAUSE' : 'PLAY'}</span>
-              </button>
-
-              <div className="flex items-center gap-1">
-                {[1, 2, 5].map((spd) => (
-                  <button
-                    key={spd}
-                    onClick={() => onChangeTimelineSpeed(spd)}
-                    className={`px-2 py-1 text-[10px] font-mono border ${
-                      timelineSpeed === spd
-                        ? 'bg-neon text-black font-bold border-neon'
-                        : 'bg-black text-zinc-400 border-white/10 hover:text-white'
-                    }`}
-                  >
-                    {spd}x
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-[9px] text-zinc-500 leading-tight">
-              Animate risk propagation across Indian ATM hubs to audit temporal escalation.
-            </p>
           </div>
         )}
       </div>

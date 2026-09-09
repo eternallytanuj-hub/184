@@ -22,6 +22,13 @@ import {
   LiveAlertItem,
 } from '@/data/dashboardData';
 import { Layers, Shield, Map as MapIcon, Sliders } from 'lucide-react';
+import { 
+  STATE_CENTROIDS, 
+  matchesState, 
+  matchesRisk, 
+  matchesAmount, 
+  matchesTime 
+} from '@/lib/filterUtils';
 
 export default function DashboardPage() {
   // Layer Toggles
@@ -43,11 +50,6 @@ export default function DashboardPage() {
     riskLevels: ['Critical', 'High', 'Moderate'],
     selectedState: 'All India',
   });
-
-  // Timeline Playback
-  const [timelineHour, setTimelineHour] = useState(14); // 2PM default
-  const [isPlayingTimeline, setIsPlayingTimeline] = useState(false);
-  const [timelineSpeed, setTimelineSpeed] = useState(1);
 
   // Selected Entities
   const [selectedZone, setSelectedZone] = useState('Sindhi Camp, Jaipur');
@@ -72,29 +74,89 @@ export default function DashboardPage() {
   // Mobile / Tablet Tab State ('map' | 'layers' | 'intelligence')
   const [mobileTab, setMobileTab] = useState<'map' | 'layers' | 'intelligence'>('map');
 
-  // Timeline playback loop
-  useEffect(() => {
-    if (!isPlayingTimeline) return;
-    const interval = setInterval(() => {
-      setTimelineHour((prev) => (prev + 1) % 24);
-    }, 1500 / timelineSpeed);
-    return () => clearInterval(interval);
-  }, [isPlayingTimeline, timelineSpeed]);
+  // Dynamic filtered counts reflecting active filters across all layers
+  const filteredCounts = React.useMemo(() => {
+    const atmsCount = ATMS_DATA.filter((atm) => {
+      if (!matchesRisk(atm.riskScore, filters.riskLevels)) return false;
+      if (!matchesState(filters.selectedState, [atm.address, atm.zone, atm.id])) return false;
+      if (!matchesTime(atm.lastAlert, filters.timeRange)) return false;
+      return true;
+    }).length;
+
+    const banksCount = BANK_BRANCHES_DATA.filter((b) => {
+      if (!matchesState(filters.selectedState, [b.address, b.zone, b.name])) return false;
+      if (!matchesRisk(b.riskLevel, filters.riskLevels)) return false;
+      return true;
+    }).length;
+
+    const policeCount = POLICE_STATIONS_DATA.filter((p) => {
+      if (!matchesState(filters.selectedState, [p.jurisdiction, p.name])) return false;
+      return true;
+    }).length;
+
+    const incidentsCount = ACTIVE_INCIDENTS_DATA.filter((inc) => {
+      if (filters.fraudTypes.length > 0 && !filters.fraudTypes.includes(inc.fraudType)) return false;
+      if (!matchesAmount(inc.amount, filters.amountRange)) return false;
+      if (!matchesState(filters.selectedState, [inc.groundTruthState, inc.predictedStateTop1, inc.victimLocation, inc.caseTitle])) return false;
+      const incTier = inc.amount >= 1000000 ? 'Critical' : inc.amount >= 200000 ? 'High' : inc.amount >= 50000 ? 'Moderate' : 'Low';
+      if (!matchesRisk(incTier, filters.riskLevels)) return false;
+      if (!matchesTime(inc.complaintTime, filters.timeRange)) return false;
+      return true;
+    }).length;
+
+    const hotspotsCount = PREDICTED_HOTSPOTS_DATA.filter((spot) => {
+      if (!matchesState(filters.selectedState, [spot.name])) return false;
+      const spotTier = spot.riskScore >= 90 || spot.urgency === 'Immediate' ? 'Critical' : spot.riskScore >= 80 ? 'High' : 'Moderate';
+      if (!matchesRisk(spotTier, filters.riskLevels)) return false;
+      if (!matchesTime(spot.urgency, filters.timeRange) && !matchesTime(spot.timeWindow, filters.timeRange)) return false;
+      return true;
+    }).length;
+
+    const corridorsCount = CORRIDORS_DATA.filter((c) => {
+      if (filters.selectedState && filters.selectedState !== 'All India') {
+        if (!matchesState(filters.selectedState, [c.fromState]) && !matchesState(filters.selectedState, [c.toState])) return false;
+      }
+      let corridorAmountNum = 10000000;
+      if (c.totalAmount.includes('Cr')) {
+        corridorAmountNum = parseFloat(c.totalAmount.replace(/[^\d.]/g, '')) * 10000000;
+      } else if (c.totalAmount.includes('Lakh')) {
+        corridorAmountNum = parseFloat(c.totalAmount.replace(/[^\d.]/g, '')) * 100000;
+      }
+      if (!matchesAmount(corridorAmountNum, filters.amountRange)) return false;
+      return true;
+    }).length;
+
+    return {
+      atms: atmsCount,
+      banks: banksCount,
+      police: policeCount,
+      incidents: incidentsCount,
+      hotspots: hotspotsCount,
+      corridors: corridorsCount,
+    };
+  }, [filters]);
 
   const handleToggleLayer = (key: keyof LayerVisibilityState) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleChangeFilter = (newFilters: Partial<FilterState>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters((prev) => {
+      const next = { ...prev, ...newFilters };
+      if (newFilters.selectedState && STATE_CENTROIDS[newFilters.selectedState]) {
+        const target = STATE_CENTROIDS[newFilters.selectedState];
+        setFlyToCoords({ coords: target.coords, zoom: target.zoom });
+      }
+      return next;
+    });
   };
 
   const handleResetFilters = () => {
     setFilters({
       timeRange: '24h',
-      fraudTypes: ['KYC Fraud', 'OTP Fraud', 'Investment Fraud', 'UPI Fraud'],
+      fraudTypes: ['KYC Fraud', 'OTP Fraud', 'Investment Fraud', 'Job/Employment Fraud', 'Loan Fraud', 'Sextortion', 'UPI Fraud', 'Other'],
       amountRange: 'all',
-      riskLevels: ['Critical', 'High', 'Moderate'],
+      riskLevels: ['Critical', 'High', 'Moderate', 'Low'],
       selectedState: 'All India',
     });
     setFlyToCoords({ coords: [22.5937, 78.9629], zoom: 5 });
@@ -144,7 +206,7 @@ export default function DashboardPage() {
       {/* 2. MAIN 3-PANEL COMMAND CENTER LAYOUT */}
       <div className="flex-1 flex overflow-hidden relative">
         
-        {/* LEFT SIDEBAR (Layers, Filters, Playback, Stats) */}
+        {/* LEFT SIDEBAR (Layers & Intelligence Filters) */}
         <div className={`w-80 flex-shrink-0 h-full z-20 transition-all duration-300 ${
           mobileTab === 'layers' ? 'block absolute inset-0 z-30 w-full' : 'hidden lg:block'
         }`}>
@@ -154,20 +216,7 @@ export default function DashboardPage() {
             filters={filters}
             onChangeFilter={handleChangeFilter}
             onResetFilters={handleResetFilters}
-            timelineHour={timelineHour}
-            onTimelineChange={setTimelineHour}
-            onTimelinePlayToggle={() => setIsPlayingTimeline(!isPlayingTimeline)}
-            isPlayingTimeline={isPlayingTimeline}
-            timelineSpeed={timelineSpeed}
-            onChangeTimelineSpeed={setTimelineSpeed}
-            layerCounts={{
-              atms: ATMS_DATA.length,
-              banks: BANK_BRANCHES_DATA.length,
-              police: POLICE_STATIONS_DATA.length,
-              incidents: ACTIVE_INCIDENTS_DATA.length,
-              hotspots: PREDICTED_HOTSPOTS_DATA.length,
-              corridors: CORRIDORS_DATA.length,
-            }}
+            layerCounts={filteredCounts}
           />
         </div>
 
