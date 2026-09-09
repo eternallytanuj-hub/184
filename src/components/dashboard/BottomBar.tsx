@@ -14,7 +14,7 @@ export default function BottomBar({ onTickerClick }: BottomBarProps) {
       {/* PANEL 1: CONTINUOUS SCROLLING REAL-TIME TICKER */}
       <div className="w-full bg-[#111111] border-b border-white/10 py-1.5 px-3 overflow-hidden flex items-center group">
         <div className="flex-shrink-0 flex items-center gap-2 pr-3 border-r border-white/15 text-[10px] text-neon font-bold uppercase tracking-wider">
-          <span className="h-2 w-2 bg-neon rounded-none animate-pulse" />
+          <span className="h-2 w-2 bg-neon rounded-none" />
           <span>RADAR DISPATCH:</span>
         </div>
 
@@ -49,41 +49,41 @@ export default function BottomBar({ onTickerClick }: BottomBarProps) {
         {/* Map Legend */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-zinc-400">
           <span className="font-bold text-white uppercase text-[9px] tracking-wider">
-            [ MAP LEGEND ]:
+            MAP LEGEND:
           </span>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-emerald-500 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
             <span>ATM (Normal)</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-yellow-400 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
             <span>ATM (Moderate)</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-red-600 rounded-none animate-pulse" />
+            <svg className="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
             <span>ATM (High Risk)</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-cyan-400 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 2L2 7h20L12 2z"/></svg>
             <span>Bank Branch</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-blue-600 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>Police Station</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 bg-red-500 rotate-45 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span>Active Incident</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 border border-neon bg-neon/30 rounded-none" />
+            <svg className="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" strokeDasharray="3 3"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
             <span>Hotspot Zone</span>
           </div>
 

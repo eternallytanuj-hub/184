@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
-  Plus, Minus, Navigation, Globe, Ruler, Disc, 
-  Camera, Layers, FileText, Share2, PenTool, Split, Eye 
+  Plus, Minus, Globe, 
+  FileText, Share2, PenTool, Split 
 } from 'lucide-react';
 import { 
   ATMS_DATA, 
@@ -68,14 +68,9 @@ export default function MapEngine({
   const hotspotsLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
   const corridorsLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
   const heatmapLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
-  const measurementLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
 
   // Base map style: 'dark' | 'street' | 'satellite' | 'terrain'
   const [mapStyle, setMapStyle] = useState<'dark' | 'street' | 'satellite' | 'terrain'>('dark');
-  const [measurementActive, setMeasurementActive] = useState(false);
-  const [measurePoints, setMeasurePoints] = useState<[number, number][]>([]);
-  const [measuredDistance, setMeasuredDistance] = useState<string | null>(null);
-  const [radiusActive, setRadiusActive] = useState(false);
   const [districtScores, setDistrictScores] = useState<DistrictRiskData[]>([]);
 
   // Load live district risk scores from ML Model API
@@ -112,41 +107,12 @@ export default function MapEngine({
     hotspotsLayerGroupRef.current.addTo(map);
     corridorsLayerGroupRef.current.addTo(map);
     heatmapLayerGroupRef.current.addTo(map);
-    measurementLayerGroupRef.current.addTo(map);
-
-    // Click handler for measurement or radius
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (measurementActive) {
-        setMeasurePoints(prev => {
-          const next = [...prev, [e.latlng.lat, e.latlng.lng] as [number, number]];
-          if (next.length === 2) {
-            const p1 = L.latLng(next[0][0], next[0][1]);
-            const p2 = L.latLng(next[1][0], next[1][1]);
-            const d = p1.distanceTo(p2);
-            setMeasuredDistance(d > 1000 ? `${(d / 1000).toFixed(2)} km` : `${Math.round(d)} meters`);
-          }
-          return next;
-        });
-      } else if (radiusActive) {
-        L.circle(e.latlng, {
-          radius: 2000,
-          color: '#ceff00',
-          fillColor: '#ceff00',
-          fillOpacity: 0.15,
-          weight: 1.5,
-          dashArray: '4, 4',
-        }).addTo(measurementLayerGroupRef.current)
-          .bindPopup('<div class="p-2 font-mono text-xs text-white">2.0 KM SURVEILLANCE RADIUS<br/><span class="text-neon">14 ATMs Within Perimeter</span></div>')
-          .openPopup();
-        setRadiusActive(false);
-      }
-    });
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [measurementActive, radiusActive]);
+  }, []);
 
   // Update Base Tile Layer when mapStyle changes
   useEffect(() => {
@@ -233,23 +199,26 @@ export default function MapEngine({
           if (!filters.riskLevels.includes(level)) return;
         }
 
-        // Custom HTML Pin Icon
+        // Custom Vector Pin Icon - Minimalist Card Terminal (Zero Blinking)
         const isHigh = atm.riskScore >= 76;
         const isMod = atm.riskScore >= 51 && atm.riskScore < 76;
-        const color = isHigh ? '#ff3b30' : isMod ? '#f59e0b' : '#10b981';
+        const color = isHigh ? '#ef4444' : isMod ? '#f59e0b' : '#10b981';
 
         const iconHtml = `
-          <div class="relative flex items-center justify-center">
-            ${isHigh ? '<div class="absolute -inset-1 bg-red-600 rounded-none animate-beacon-pulse"></div>' : ''}
-            <div style="background-color: ${color}; width: 12px; height: 12px; border: 1.5px solid #000; box-shadow: 0 0 6px ${color};"></div>
+          <div style="width: 20px; height: 20px; background: #0c0c0c; border: 1.5px solid ${color}; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.8);">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="1"/>
+              <line x1="2" y1="10" x2="22" y2="10"/>
+              <circle cx="6" cy="15" r="1" fill="${color}"/>
+            </svg>
           </div>
         `;
 
         const customIcon = L.divIcon({
           html: iconHtml,
           className: 'custom-atm-marker',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
         });
 
         const marker = L.marker([atm.lat, atm.lng], { icon: customIcon });
@@ -287,16 +256,23 @@ export default function MapEngine({
     if (layers.banks) {
       BANK_BRANCHES_DATA.forEach((branch) => {
         const iconHtml = `
-          <div style="background-color: #06b6d4; width: 14px; height: 14px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px #06b6d4;">
-            <div style="width: 6px; height: 6px; background: #000;"></div>
+          <div style="width: 22px; height: 22px; background: #0c0c0c; border: 1.5px solid #06b6d4; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.8);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="21" x2="21" y2="21"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <path d="m12 3 9 7H3z"/>
+              <line x1="7" y1="10" x2="7" y2="21"/>
+              <line x1="12" y1="10" x2="12" y2="21"/>
+              <line x1="17" y1="10" x2="17" y2="21"/>
+            </svg>
           </div>
         `;
 
         const customIcon = L.divIcon({
           html: iconHtml,
           className: 'custom-bank-marker',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
         });
 
         const marker = L.marker([branch.lat, branch.lng], { icon: customIcon });
@@ -330,16 +306,18 @@ export default function MapEngine({
     if (layers.police) {
       POLICE_STATIONS_DATA.forEach((ps) => {
         const iconHtml = `
-          <div style="background-color: #2563eb; width: 15px; height: 15px; border: 1.5px solid #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px #2563eb;">
-            <div style="width: 5px; height: 5px; background: #fff;"></div>
+          <div style="width: 22px; height: 22px; background: #0a1526; border: 1.5px solid #3b82f6; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.8);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
           </div>
         `;
 
         const customIcon = L.divIcon({
           html: iconHtml,
           className: 'custom-police-marker',
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
         });
 
         const marker = L.marker([ps.lat, ps.lng], { icon: customIcon });
@@ -373,22 +351,23 @@ export default function MapEngine({
     incidentsLayerGroupRef.current.clearLayers();
     if (layers.incidents) {
       ACTIVE_INCIDENTS_DATA.forEach((inc) => {
-        // Size proportional to amount (min 20px, max 34px)
-        const size = Math.min(34, Math.max(20, 20 + (inc.amount / 100000) * 0.8));
-
-        // Victim Origin Marker
+        // Incident Warning Diamond (Zero Blinking)
         const iconHtml = `
-          <div style="width: ${size}px; height: ${size}px; display: flex; align-items: center; justify-content: center; position: relative;">
-            <div style="position: absolute; inset: 0; background: rgba(239, 68, 68, 0.25); border: 2px solid #ef4444; border-radius: 4px; transform: rotate(45deg); box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);"></div>
-            <img src="/logos/emblem_india.svg" alt="Court" style="width: 11px; height: 11px; position: relative; filter: invert(1) brightness(2);" />
+          <div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; position: relative;">
+            <div style="position: absolute; inset: 2px; background: #1c0808; border: 1.5px solid #ef4444; transform: rotate(45deg); box-shadow: 0 2px 6px rgba(0,0,0,0.8);"></div>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position: relative; z-index: 2;">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
           </div>
         `;
 
         const customIcon = L.divIcon({
           html: iconHtml,
           className: 'custom-real-case-marker',
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
         });
 
         const marker = L.marker([inc.lat, inc.lng], { icon: customIcon });
@@ -469,20 +448,21 @@ export default function MapEngine({
 
         marker.addTo(incidentsLayerGroupRef.current);
 
-        // Ground Truth Cash-Out Marker (Green Shield with ATM Icon)
+        // Ground Truth Cash-Out Marker (Zero Blinking)
         if (inc.groundTruthCoords) {
           const gtIconHtml = `
-            <div style="width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; position: relative;">
-              <div style="position: absolute; inset: 0; background: rgba(16, 185, 129, 0.25); border: 2px solid #10b981; border-radius: 50%; box-shadow: 0 0 10px rgba(16, 185, 129, 0.7); animation: pulse 2s infinite;"></div>
-              <img src="/logos/rbi.svg" alt="ATM" style="width: 13px; height: 13px; position: relative;" />
+            <div style="width: 22px; height: 22px; background: #062b1a; border: 1.5px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.8);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
             </div>
           `;
 
           const gtIcon = L.divIcon({
             html: gtIconHtml,
             className: 'custom-ground-truth-marker',
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
           });
 
           const gtMarker = L.marker(inc.groundTruthCoords, { icon: gtIcon });
@@ -516,39 +496,68 @@ export default function MapEngine({
     hotspotsLayerGroupRef.current.clearLayers();
     if (layers.hotspots) {
       PREDICTED_HOTSPOTS_DATA.forEach((spot) => {
-        // Circle size = confidence level, opacity = urgency
         const radius = spot.radius;
-        const opacity = spot.urgency === 'Immediate' ? 0.35 : 0.2;
+        const opacity = spot.urgency === 'Immediate' ? 0.25 : 0.15;
 
+        // Clean subtle perimeter circle (no flashing)
         const circle = L.circle([spot.lat, spot.lng], {
           radius,
-          color: '#ff3b30',
-          fillColor: '#ff3b30',
+          color: '#ef4444',
+          fillColor: '#ef4444',
           fillOpacity: opacity,
-          weight: 2,
-          dashArray: '3, 3',
+          weight: 1.5,
+          dashArray: '4, 4',
         });
 
-        circle.on('click', () => {
-          onSelectZone(spot.name, [spot.lat, spot.lng], 15);
+        // Center Tactical Radar Pin (Zero Blinking)
+        const centerIconHtml = `
+          <div style="width: 22px; height: 22px; background: #1a0808; border: 1.5px solid #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.8);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="22" y1="12" x2="18" y2="12"/>
+              <line x1="6" y1="12" x2="2" y2="12"/>
+              <line x1="12" y1="6" x2="12" y2="2"/>
+              <line x1="12" y1="22" x2="12" y2="18"/>
+            </svg>
+          </div>
+        `;
+
+        const centerIcon = L.divIcon({
+          html: centerIconHtml,
+          className: 'custom-hotspot-center-marker',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
         });
 
-        circle.bindPopup(`
-          <div style="padding: 12px; font-family: monospace; font-size: 11px; background: #141414; color: #fff; border: 1px solid rgba(255,59,48,0.5); width: 280px;">
-            <div style="font-weight: bold; font-size: 12px; color: #ff3b30; margin-bottom: 4px;">
+        const centerMarker = L.marker([spot.lat, spot.lng], { icon: centerIcon });
+
+        const popupContent = `
+          <div style="padding: 12px; font-family: monospace; font-size: 11px; background: #141414; color: #fff; border: 1px solid rgba(239,68,68,0.5); width: 280px;">
+            <div style="font-weight: bold; font-size: 12px; color: #ef4444; margin-bottom: 4px;">
               HOTSPOT: ${spot.name}
             </div>
             <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; margin-bottom: 6px;">
               <div>Prediction Confidence: <strong style="color: #ceff00;">${spot.confidence}%</strong></div>
               <div>Time Window: <strong>${spot.timeWindow}</strong></div>
               <div>ATMs in Zone: <strong>${spot.atmCount} Terminals</strong></div>
-              <div>Urgency: <strong style="color: #ff3b30;">${spot.urgency}</strong></div>
+              <div>Urgency: <strong style="color: #ef4444;">${spot.urgency}</strong></div>
               <div style="margin-top: 6px; font-size: 10px; color: #bbb;">Action: ${spot.recommendedAction}</div>
             </div>
           </div>
-        `);
+        `;
+
+        circle.on('click', () => {
+          onSelectZone(spot.name, [spot.lat, spot.lng], 15);
+        });
+        centerMarker.on('click', () => {
+          onSelectZone(spot.name, [spot.lat, spot.lng], 15);
+        });
+
+        circle.bindPopup(popupContent);
+        centerMarker.bindPopup(popupContent);
 
         circle.addTo(hotspotsLayerGroupRef.current);
+        centerMarker.addTo(hotspotsLayerGroupRef.current);
       });
     }
 
@@ -666,56 +675,8 @@ export default function MapEngine({
 
   }, [layers, filters, onSelectATM, onSelectPolice, onSelectBranch, onSelectZone, districtScores]);
 
-  // Handle Measurement Line Rendering
-  useEffect(() => {
-    measurementLayerGroupRef.current.clearLayers();
-    if (measurePoints.length === 2) {
-      L.polyline(measurePoints, {
-        color: '#ceff00',
-        weight: 2,
-        dashArray: '4, 4',
-      }).addTo(measurementLayerGroupRef.current);
-
-      measurePoints.forEach((pt, idx) => {
-        L.circleMarker(pt, {
-          radius: 5,
-          color: '#ceff00',
-          fillColor: '#000',
-          fillOpacity: 1,
-        }).addTo(measurementLayerGroupRef.current);
-      });
-    }
-  }, [measurePoints]);
-
   const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
-
-  const handleMyLocation = () => {
-    if (navigator.geolocation && mapInstanceRef.current) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (!mapInstanceRef.current) return;
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          mapInstanceRef.current.flyTo([lat, lng], 15);
-          L.circleMarker([lat, lng], {
-            radius: 8,
-            color: '#ceff00',
-            fillColor: '#ceff00',
-            fillOpacity: 0.6,
-          }).addTo(measurementLayerGroupRef.current)
-            .bindPopup('<div class="p-1 font-mono text-xs text-white">FIELD OFFICER POSITION</div>')
-            .openPopup();
-        },
-        () => {
-          // Fallback to Delhi Command
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([28.6139, 77.2090], 14);
-          }
-        }
-      );
-    }
-  };
 
   const handleNationalReset = () => {
     mapInstanceRef.current?.flyTo([22.5937, 78.9629], 5);
@@ -726,10 +687,6 @@ export default function MapEngine({
     if (loc && mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([loc.lat, loc.lng], loc.zoom);
     }
-  };
-
-  const handleExportScreenshot = () => {
-    alert('Capturing intelligence map viewport and compiling snapshot...');
   };
 
   return (
@@ -789,13 +746,13 @@ export default function MapEngine({
         </button>
       </div>
 
-      {/* LEFT SURFACE: MAP INTERACTION CONTROLS */}
+      {/* LEFT SURFACE: MAP INTERACTION CONTROLS - ONLY ZOOM IN AND ZOOM OUT */}
       <div className="absolute top-16 left-3 z-30 flex flex-col gap-1.5">
         
         {/* Zoom In */}
         <button
           onClick={handleZoomIn}
-          className="h-8 w-8 bg-[#141414]/90 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm"
+          className="h-8 w-8 bg-[#141414]/90 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm active:scale-95 transition-transform"
           title="Zoom In"
         >
           <Plus className="h-4 w-4" />
@@ -804,89 +761,13 @@ export default function MapEngine({
         {/* Zoom Out */}
         <button
           onClick={handleZoomOut}
-          className="h-8 w-8 bg-[#141414]/90 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm"
+          className="h-8 w-8 bg-[#141414]/90 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm active:scale-95 transition-transform"
           title="Zoom Out"
         >
           <Minus className="h-4 w-4" />
         </button>
 
-        {/* My Location */}
-        <button
-          onClick={handleMyLocation}
-          className="h-8 w-8 bg-[#141414]/90 hover:bg-neon hover:text-black border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm"
-          title="My Location (Field Officer Position)"
-        >
-          <Navigation className="h-3.5 w-3.5" />
-        </button>
-
-        {/* Measurement Ruler Tool */}
-        <button
-          onClick={() => {
-            setMeasurementActive(!measurementActive);
-            setRadiusActive(false);
-            setMeasurePoints([]);
-            setMeasuredDistance(null);
-          }}
-          className={`h-8 w-8 border flex items-center justify-center shadow-lg backdrop-blur-sm ${
-            measurementActive ? 'bg-neon text-black border-neon' : 'bg-[#141414]/90 hover:bg-white/20 border-white/15 text-white'
-          }`}
-          title="Distance Measurement Tool (Click two points)"
-        >
-          <Ruler className="h-3.5 w-3.5" />
-        </button>
-
-        {/* 2km Radius Surveillance Tool */}
-        <button
-          onClick={() => {
-            setRadiusActive(!radiusActive);
-            setMeasurementActive(false);
-          }}
-          className={`h-8 w-8 border flex items-center justify-center shadow-lg backdrop-blur-sm ${
-            radiusActive ? 'bg-neon text-black border-neon' : 'bg-[#141414]/90 hover:bg-white/20 border-white/15 text-white'
-          }`}
-          title="2.0 km Radius Surveillance Circle"
-        >
-          <Disc className="h-3.5 w-3.5" />
-        </button>
-
-        {/* Screenshot / Export Map */}
-        <button
-          onClick={handleExportScreenshot}
-          className="h-8 w-8 bg-[#141414]/90 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shadow-lg backdrop-blur-sm"
-          title="Export Map View / Screenshot for Report"
-        >
-          <Camera className="h-3.5 w-3.5" />
-        </button>
-
       </div>
-
-      {/* MEASUREMENT HUD DISPLAY */}
-      {measurementActive && (
-        <div className="absolute top-16 left-14 z-30 bg-[#141414] border border-neon p-2 text-xs text-white shadow-xl flex items-center gap-3">
-          <div>
-            <div className="text-[9px] text-neon uppercase font-bold">RULER MODE:</div>
-            <div>
-              {measuredDistance ? (
-                <span>DISTANCE: <strong className="text-neon">{measuredDistance}</strong></span>
-              ) : measurePoints.length === 1 ? (
-                <span className="text-zinc-400">Click second point...</span>
-              ) : (
-                <span className="text-zinc-400">Click first point on map...</span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              setMeasurementActive(false);
-              setMeasurePoints([]);
-              setMeasuredDistance(null);
-            }}
-            className="text-zinc-500 hover:text-white text-[10px]"
-          >
-            [ ESC ]
-          </button>
-        </div>
-      )}
 
       {/* BOTTOM RIGHT SURFACE: FLOATING ACTION BUTTONS */}
       <div className="absolute bottom-4 right-4 z-30 flex items-center gap-2">
