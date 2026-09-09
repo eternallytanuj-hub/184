@@ -5,7 +5,7 @@ import {
   MessageSquare, Send, Languages, Mic, Paperclip, 
   MapPin, Shield, CheckCheck, Users, Radio, AlertTriangle, 
   CornerDownRight, Volume2, Globe, Clock, ChevronDown, 
-  Sparkles, FileText, ArrowRight, Share2, Check
+  FileText, ArrowRight, Share2, Check
 } from 'lucide-react';
 import { 
   OfficerRole, OFFICER_ROLES, OfficerProfile, CHAT_CHANNELS, CHAT_MESSAGES, 

@@ -334,50 +334,53 @@ export default function CollabHeader({
           </div>
 
           {/* Navigation Links */}
-          <div className="hidden lg:flex items-center gap-2 pl-4 border-l border-white/10">
+          <div className="hidden lg:flex items-center gap-1 sm:gap-2 pl-4 border-l border-white/10">
             <Link
               href="/"
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/10 text-zinc-300 text-[10px] uppercase tracking-wider flex items-center gap-1.5"
+              className="px-2.5 py-1 text-zinc-400 hover:text-white hover:bg-white/5 text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-colors"
             >
-              <ArrowLeft className="h-3 w-3 text-neon" />
-              <span>[ PORTAL ]</span>
+              <ArrowLeft className="h-3.5 w-3.5 text-zinc-400" />
+              <span>PORTAL</span>
             </Link>
 
             <Link
               href="/dashboard"
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/10 text-zinc-300 text-[10px] uppercase tracking-wider flex items-center gap-1.5"
+              className="px-2.5 py-1 text-zinc-400 hover:text-white hover:bg-white/5 text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-colors"
             >
-              <Map className="h-3 w-3 text-cyan-400" />
-              <span>[ RADAR MAP ]</span>
+              <Map className="h-3.5 w-3.5 text-zinc-400" />
+              <span>RADAR MAP</span>
             </Link>
 
             <Link
               href="/verify"
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/10 text-zinc-300 text-[10px] uppercase tracking-wider flex items-center gap-1.5"
+              className="px-2.5 py-1 text-zinc-400 hover:text-white hover:bg-white/5 text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition-colors"
               title="Public Judicial Verification Portal"
             >
-              <ShieldCheck className="h-3 w-3 text-neon" />
-              <span>[ VERIFY ]</span>
+              <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+              <span>VERIFY</span>
             </Link>
 
-            <div className="px-2 py-1 bg-neon/10 border border-neon text-neon text-[10px] uppercase font-bold flex items-center gap-1.5">
-              <Radio className="h-3 w-3 animate-pulse" />
+            <div className="px-2.5 py-1 text-neon text-[11px] uppercase font-bold flex items-center gap-1.5">
+              <Radio className="h-3.5 w-3.5 animate-pulse" />
               <span>COLLAB ACTIVE</span>
             </div>
+          </div>
 
+          {/* Telemetry Status Bar */}
+          <div className="hidden xl:flex items-center gap-3.5 pl-4 border-l border-white/10 text-[10px]">
             {/* Live Model Badge */}
             <div 
               onClick={refreshHealth}
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/15 text-[10px] uppercase font-bold flex items-center gap-1.5 cursor-pointer"
+              className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors py-1 select-none"
               title={`ML Engine Status: ${modelHealth?.status === 'healthy' ? '5/5 Models Active' : 'Offline / Cached'} (Latency: ${modelHealth?.latencyMs || 0}ms)`}
             >
               <span className={`h-1.5 w-1.5 ${
                 modelHealth?.status === 'healthy' ? 'bg-neon animate-pulse' :
                 modelHealth?.status === 'degraded' ? 'bg-amber-400 animate-pulse' : 'bg-red-500'
               }`} />
-              <span className={modelHealth?.status === 'healthy' ? 'text-zinc-200' : 'text-zinc-400'}>
+              <span className="uppercase">
                 {modelHealth?.status === 'healthy' ? (
-                  <>AI ENGINE: <span className="text-neon">{modelHealth.modelsLoadedCount}/5 LIVE</span></>
+                  <>AI ENGINE: <span className="text-neon font-bold">{modelHealth.modelsLoadedCount}/5 LIVE</span></>
                 ) : modelHealth?.status === 'degraded' ? (
                   <span className="text-amber-400">AI ENGINE: {modelHealth.modelsLoadedCount}/5</span>
                 ) : (
@@ -389,19 +392,19 @@ export default function CollabHeader({
             {/* Polygon Ledger Synced Pulse Indicator */}
             <Link
               href="/verify"
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-neon/30 text-[10px] uppercase font-bold flex items-center gap-1.5"
+              className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 transition-colors py-1 select-none"
               title="Polygon Amoy Ledger: Synced (Block Finality 2.1s)"
             >
               <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
-              <span className="text-zinc-200">
-                LEDGER: <span className="text-neon">SYNCED</span>
+              <span className="uppercase">
+                LEDGER: <span className="text-neon font-bold">SYNCED</span>
               </span>
             </Link>
 
             {/* USB ADB Hardware Bridge Status Indicator */}
             <div
               onClick={refreshHardware}
-              className="px-2 py-1 bg-black hover:bg-white/10 border border-white/15 text-[10px] uppercase font-bold flex items-center gap-1.5 cursor-pointer select-none"
+              className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 cursor-pointer select-none transition-colors py-1"
               title={
                 hardwareStatus?.connected
                   ? `ADB Hardware Bridge: ${hardwareStatus.deviceId} (${hardwareStatus.model || 'Android'}). Method A Live Intent Active.`
@@ -414,13 +417,13 @@ export default function CollabHeader({
                 hardwareStatus?.connected ? 'bg-[#ceff00] animate-pulse' :
                 hardwareStatus?.unauthorized ? 'bg-amber-400 animate-pulse' : 'bg-amber-500'
               }`} />
-              <span className={hardwareStatus?.connected ? 'text-zinc-200' : 'text-zinc-400'}>
+              <span className="uppercase">
                 {hardwareStatus?.connected ? (
-                  <>USB HW: <span className="text-[#ceff00]">{hardwareStatus.deviceId}</span></>
+                  <>USB HW: <span className="text-[#ceff00] font-bold">{hardwareStatus.deviceId}</span></>
                 ) : hardwareStatus?.unauthorized ? (
                   <span className="text-amber-400">USB HW: UNAUTHORIZED</span>
                 ) : (
-                  <span className="text-zinc-400">USB HW: <span className="text-amber-400">SIM</span></span>
+                  <span>USB HW: <span className="text-amber-400 font-bold">SIM</span></span>
                 )}
               </span>
             </div>
@@ -428,19 +431,19 @@ export default function CollabHeader({
         </div>
 
         {/* Center Live IST Clock & Session Security */}
-        <div className="hidden xl:flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2 px-3 py-1 bg-[#141414] border border-white/10">
+        <div className="hidden 2xl:flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-2 text-zinc-300">
             <Clock className="h-3.5 w-3.5 text-neon" />
-            <span className="text-[11px] font-mono text-zinc-200">{istTime || 'LOADING IST...'}</span>
+            <span className="text-[11px] font-mono">{istTime || 'LOADING IST...'}</span>
           </div>
 
           {/* Auto-logout countdown */}
-          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 bg-black px-2.5 py-1 border border-white/5">
+          <div className="flex items-center gap-2 text-[10px] text-zinc-400 pl-4 border-l border-white/10">
             <Lock className="h-3 w-3 text-amber-400" />
             <span>SESSION: <strong className="text-white">{formatSessionTime(sessionSeconds)}</strong></span>
             <button
               onClick={() => setSessionSeconds(900)}
-              className="hover:text-neon text-[9px] underline ml-1"
+              className="hover:text-neon text-[9px] uppercase tracking-wider text-zinc-500 hover:underline ml-1"
               title="Reset 15-min Session Timer"
             >
               RESET
@@ -449,23 +452,18 @@ export default function CollabHeader({
         </div>
 
         {/* Right Section: Role Switcher & Profile & Notifications */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-3 sm:gap-4">
           
           {/* Role Switcher Dropdown (5 Operational Tiers) */}
           <div className="relative">
             <button
               onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-              className="px-2.5 py-1 bg-[#141414] hover:bg-white/10 border border-white/20 flex items-center gap-2 text-xs"
+              className="px-2.5 py-1 hover:bg-white/5 flex items-center gap-2 text-xs transition-colors cursor-pointer"
               title="Switch Operational Role for Evaluation"
             >
-              <Shield className={`h-3.5 w-3.5 ${
-                currentRole === 'i4c_admin' ? 'text-neon' :
-                currentRole === 'state_nodal' ? 'text-blue-400' :
-                currentRole === 'district_officer' ? 'text-amber-400' :
-                currentRole === 'field_investigator' ? 'text-red-400' : 'text-cyan-400'
-              }`} />
+              <Shield className="h-3.5 w-3.5 text-neon" />
               <div className="text-left hidden sm:block">
-                <div className="text-[9px] text-zinc-400 uppercase tracking-widest leading-none">
+                <div className="text-[9px] text-zinc-400 uppercase tracking-wider">
                   ROLE TIER:
                 </div>
                 <div className="text-[11px] font-bold text-white leading-tight">
@@ -478,7 +476,7 @@ export default function CollabHeader({
             {roleDropdownOpen && (
               <div className="absolute right-0 mt-1 w-72 bg-[#141414] border border-white/20 shadow-2xl z-50 p-2 text-xs">
                 <div className="text-[9px] text-zinc-400 uppercase tracking-wider px-2 py-1 border-b border-white/10 mb-1">
-                  [ SWITCH OPERATIONAL ACCESS TIER ]
+                  SWITCH OPERATIONAL ACCESS TIER
                 </div>
                 {(Object.keys(OFFICER_ROLES) as OfficerRole[]).map((rKey) => {
                   const rProf = OFFICER_ROLES[rKey];
@@ -521,7 +519,7 @@ export default function CollabHeader({
           <div className="relative">
             <button
               onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-              className="p-2 bg-[#141414] hover:bg-white/10 border border-white/20 text-zinc-300 hover:text-white relative"
+              className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors relative cursor-pointer"
               title="Operational Alerts & Notifications"
             >
               <Bell className="h-4 w-4" />
@@ -569,9 +567,9 @@ export default function CollabHeader({
 
           {/* Biometric / Login Authenticator Trigger or Sign Out */}
           {isAuthenticated ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {officer && (
-                <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-black/80 border border-white/15 text-[10px] font-mono text-zinc-300">
+                <div className="hidden md:flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono text-zinc-300">
                   <span className="h-1.5 w-1.5 bg-neon animate-pulse" />
                   <span className="text-neon font-bold">{officer.badgeId}</span>
                   <span className="text-zinc-500">|</span>
@@ -581,20 +579,20 @@ export default function CollabHeader({
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-black border border-white/20 hover:border-red-500/60 text-zinc-300 hover:text-red-400 font-mono text-xs font-bold uppercase transition-colors rounded-none cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 hover:bg-red-500/10 text-zinc-400 hover:text-red-400 font-mono text-xs font-bold uppercase tracking-wider transition-colors rounded-none cursor-pointer"
                 title="Sign out and terminate session"
               >
                 <LogOut className="h-3.5 w-3.5 text-red-400" />
-                <span>[ SIGN OUT ]</span>
+                <span>SIGN OUT</span>
               </button>
             </div>
           ) : (
             <button
               onClick={triggerAuthModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ceff00] hover:bg-[#b8e600] text-black font-mono text-xs font-bold uppercase transition-colors rounded-none shadow-[0_0_10px_rgba(206,255,0,0.2)]"
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#ceff00] hover:bg-[#b8e600] text-black font-mono text-xs font-bold uppercase tracking-wider transition-colors rounded-none shadow-[0_0_10px_rgba(206,255,0,0.2)] cursor-pointer"
               title="Biometric & Security Credentials"
             >
-              <Fingerprint className="h-3.5 w-3.5 text-neon" />
+              <Fingerprint className="h-3.5 w-3.5 text-black" />
               <span>AUTH ID</span>
             </button>
           )}

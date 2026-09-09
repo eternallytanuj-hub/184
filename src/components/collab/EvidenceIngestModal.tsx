@@ -20,7 +20,7 @@ import {
   Eye,
   Languages,
   Clock,
-  Sparkles,
+  Cpu,
   MapPin,
   Laptop
 } from 'lucide-react';
@@ -570,7 +570,7 @@ export default function EvidenceIngestModal({
                 <div className="space-y-3 pt-2 border-t border-white/10">
                   <div className="flex items-center justify-between">
                     <span className="text-[#ceff00] font-bold text-xs uppercase flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4" />
+                      <Cpu className="w-4 h-4" />
                       3. LIVE PADDLEOCR & FORENSIC ENTITY PREVIEW
                     </span>
                     {ocrResult && (
@@ -784,7 +784,7 @@ export default function EvidenceIngestModal({
                   className="px-5 py-2.5 bg-[#ceff00] hover:bg-[#b8e600] text-black text-xs font-bold uppercase tracking-wider flex items-center gap-2 rounded-none disabled:opacity-50 shadow-[0_0_15px_rgba(206,255,0,0.2)]"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>[ 🔒 ANCHOR ARTIFACT & OCR TO POLYGON AMOY ]</span>
+                  <span>ANCHOR ARTIFACT & OCR TO POLYGON AMOY</span>
                 </button>
               </div>
             </>

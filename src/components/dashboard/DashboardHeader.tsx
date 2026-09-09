@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   Search, Bell, User, AlertTriangle, CheckCircle, 
-  MapPin, Clock, Shield, ExternalLink, X, ChevronDown, LogOut 
+  MapPin, Clock, Shield, ExternalLink, X, ChevronDown, LogOut,
+  ArrowLeft, Radio
 } from 'lucide-react';
 import { 
   ATMS_DATA, 
@@ -482,16 +483,18 @@ export default function DashboardHeader({
         {/* Return to Landing Page & Collab Link */}
         <Link
           href="/"
-          className="hidden md:inline-flex items-center gap-1 font-mono text-[10px] text-zinc-400 hover:text-neon uppercase px-2 py-1 border border-white/10 hover:border-neon transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 hover:text-white hover:bg-white/5 uppercase px-2.5 py-1 transition-colors"
         >
-          <span>[ ← PORTAL ]</span>
+          <ArrowLeft className="h-3 w-3 text-neon" />
+          <span>PORTAL</span>
         </Link>
 
         <Link
           href="/collab"
-          className="inline-flex items-center gap-1 font-mono text-[10px] text-black font-bold bg-[#ceff00] hover:bg-[#b8e600] uppercase px-2.5 py-1 transition-colors shadow-[0_0_10px_rgba(206,255,0,0.2)]"
+          className="inline-flex items-center gap-1.5 font-mono text-[11px] text-black font-bold bg-[#ceff00] hover:bg-[#b8e600] uppercase px-3 py-1 transition-colors shadow-[0_0_10px_rgba(206,255,0,0.2)]"
         >
-          <span>[ REPORT & COLLAB ]</span>
+          <Radio className="h-3 w-3" />
+          <span>REPORT & COLLAB</span>
         </Link>
 
         {/* Header Sign Out Button */}
@@ -499,11 +502,11 @@ export default function DashboardHeader({
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex items-center gap-1 font-mono text-[10px] text-zinc-300 hover:text-red-400 uppercase px-2 py-1 bg-black border border-white/15 hover:border-red-500/50 transition-colors rounded-none cursor-pointer"
+            className="inline-flex items-center gap-1.5 font-mono text-[11px] text-zinc-400 hover:text-red-400 uppercase px-2.5 py-1 hover:bg-red-500/10 transition-colors rounded-none cursor-pointer"
             title="Terminate session and sign out"
           >
             <LogOut className="h-3 w-3 text-red-400" />
-            <span>[ SIGN OUT ]</span>
+            <span>SIGN OUT</span>
           </button>
         )}
 

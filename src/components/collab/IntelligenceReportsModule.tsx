@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { 
-  FileText, Download, Share2, Sparkles, TrendingUp, 
+  FileText, Download, Share2, TrendingUp, 
   BarChart3, Globe, Calendar, Check, Printer, Shield, 
   AlertTriangle, Network, Layers, ExternalLink
 } from 'lucide-react';

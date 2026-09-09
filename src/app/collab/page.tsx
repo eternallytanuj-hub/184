@@ -30,7 +30,6 @@ import {
   Shield, 
   ExternalLink,
   ChevronRight,
-  Sparkles,
   Info
 } from 'lucide-react';
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { 
-  X, Sparkles, Send, AlertTriangle, Shield, CheckCircle2, 
+  X, Cpu, Send, AlertTriangle, Shield, CheckCircle2, 
   Clock, MapPin, Building, ArrowRight, BarChart3, Info, 
   TrendingUp, RefreshCw, Layers, ExternalLink, Zap, Lock, ShieldCheck,
   Radio, Smartphone
@@ -431,7 +431,7 @@ export default function ComplaintPredictorModal({
               title="Section 63 Bharatiya Sakshya Adhiniyam, 2023 Statutory Proof"
             >
               <Lock className="h-3 w-3 text-emerald-400" />
-              <span>[ 🔒 IMMUTABLE BSA 2023 LEDGER ANCHORING: {isBlockchainAnchoringEnabled ? 'ENABLED' : 'DISABLED'} ]</span>
+              <span>🔒 IMMUTABLE BSA 2023 LEDGER ANCHORING: {isBlockchainAnchoringEnabled ? 'ENABLED' : 'DISABLED'}</span>
             </button>
 
             <button
@@ -452,7 +452,7 @@ export default function ComplaintPredictorModal({
             {/* PRESET TEMPLATES */}
             <div className="space-y-1.5">
               <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3 text-neon" />
+                <Cpu className="h-3 w-3 text-neon" />
                 <span>EVALUATION TEST PRESETS:</span>
               </div>
               <div className="grid grid-cols-1 gap-1.5">
@@ -480,7 +480,7 @@ export default function ComplaintPredictorModal({
             {/* FORM */}
             <form onSubmit={handleRunAnalysis} className="space-y-3">
               <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest border-t border-white/10 pt-3">
-                [ COMPLAINT PARAMETERS ]
+                COMPLAINT PARAMETERS
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -627,7 +627,7 @@ export default function ComplaintPredictorModal({
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 text-black" />
+                    <Cpu className="h-4 w-4 text-black" />
                     <span>EXECUTE LIVE ML PREDICTION →</span>
                   </>
                 )}
@@ -657,7 +657,7 @@ export default function ComplaintPredictorModal({
               <div className="h-full min-h-[360px] flex flex-col items-center justify-center text-center p-6">
                 <div className="relative mb-4">
                   <div className="h-10 w-10 border-2 border-neon border-t-transparent animate-spin" />
-                  <Sparkles className="h-4 w-4 text-neon absolute inset-0 m-auto" />
+                  <Cpu className="h-4 w-4 text-neon absolute inset-0 m-auto" />
                 </div>
                 <div className="text-xs font-bold uppercase tracking-wider text-neon mb-1">
                   Analyzing Complaint via Railway FastAPI Backend
@@ -924,7 +924,7 @@ export default function ComplaintPredictorModal({
                       className="px-3 py-1.5 bg-neon hover:bg-[#b8e600] disabled:bg-zinc-800 disabled:text-zinc-500 text-black font-bold text-xs uppercase flex items-center gap-1.5 transition-colors"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>{savedSuccess ? 'DOSSIER DISPATCHED & ANCHORED ✓' : '[ SAVE & DISPATCH TO ACTIVE DOSSIER ]'}</span>
+                      <span>{savedSuccess ? 'DOSSIER DISPATCHED & ANCHORED ✓' : 'SAVE & DISPATCH TO ACTIVE DOSSIER'}</span>
                     </button>
 
                     <button

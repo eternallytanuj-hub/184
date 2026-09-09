@@ -6,7 +6,7 @@ import {
   Shield, AlertTriangle, CheckCircle2, Clock, Lock, 
   FileText, MessageSquare, Download, Share2, CornerDownRight,
   TrendingDown, Check, X, Building, Smartphone, MapPin, 
-  ChevronRight, RefreshCw, Send, Sparkles, ExternalLink,
+  ChevronRight, RefreshCw, Send, Plus, Cpu, RotateCcw, ExternalLink,
   Printer, ShieldCheck, Database, FileCheck, Radio
 } from 'lucide-react';
 import { sendAdbSms } from '@/lib/hardwareService';
@@ -408,10 +408,10 @@ export default function CaseManagementModule({
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => setIsPredictModalOpen(true)}
-            className="px-3 py-1.5 bg-neon hover:bg-[#b8e600] text-black font-bold text-xs uppercase flex items-center gap-1.5 shadow-[0_0_12px_rgba(206,255,0,0.3)] transition-all cursor-pointer"
+            className="px-3.5 py-2 bg-neon hover:bg-[#b8e600] text-black font-bold text-xs uppercase flex items-center gap-2 shadow-[0_0_12px_rgba(206,255,0,0.3)] transition-all cursor-pointer"
           >
-            <Sparkles className="h-3.5 w-3.5 text-black" />
-            <span>[ ⚡ INGEST COMPLAINT & RUN AI PREDICTION ]</span>
+            <Plus className="h-4 w-4 text-black stroke-[2.5]" />
+            <span>INGEST COMPLAINT & RUN AI PREDICTION</span>
           </button>
 
           {/* Global Case Search Box */}
@@ -494,9 +494,10 @@ export default function CaseManagementModule({
                 setFilterState('ALL');
                 setSearchQuery('');
               }}
-              className="text-[9px] text-neon hover:underline uppercase"
+              className="text-[9px] text-neon hover:underline uppercase flex items-center gap-1"
             >
-              [ RESET FILTERS ]
+              <RotateCcw className="h-2.5 w-2.5" />
+              <span>RESET FILTERS</span>
             </button>
           )}
         </div>
@@ -820,7 +821,7 @@ export default function CaseManagementModule({
                   {/* AI Case Summary & Gang Attribution */}
                   <div className="p-4 bg-neon/5 border border-neon/30 space-y-2">
                     <div className="flex items-center gap-2 text-neon text-[10px] uppercase font-bold">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Cpu className="h-3.5 w-3.5" />
                       CYBERCAST AI SYNTHESIS & ATTRIBUTION (CONFIDENCE: {activeCase.confidenceScore}%)
                     </div>
                     <p className="text-zinc-200 leading-relaxed text-[11px]">
@@ -1039,7 +1040,7 @@ export default function CaseManagementModule({
                   <div className="p-4 bg-[#141414] border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-neon uppercase flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
+                        <Cpu className="h-4 w-4" />
                         PREDICTIVE ATM WITHDRAWAL CORRIDOR REPORT
                       </div>
                       <button
